@@ -90,10 +90,15 @@ if st.session_state.get("logged_in") and "login_time" in st.session_state:
 
 # Google OAuth Setup
 def get_google_authenticator():
-    client_id = os.environ.get("GOOGLE_CLIENT_ID", "your_client_id")
-    client_secret = os.environ.get("GOOGLE_CLIENT_SECRET", "your_client_secret")
-    redirect_uri = os.environ.get("GOOGLE_REDIRECT_URI", "http://localhost:8501")
+    client_id = os.environ.get("GOOGLE_CLIENT_ID")
+    client_secret = os.environ.get("GOOGLE_CLIENT_SECRET")
+    redirect_uri = os.environ.get("GOOGLE_REDIRECT_URI")
+    cookie_key = os.environ.get("GOOGLE_COOKIE_KEY")
     
+    if not client_id or not client_secret or not redirect_uri or not cookie_key:
+        st.error("[!] Config Error: Missing required Google OAuth environment variables! Please configure GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, and GOOGLE_COOKIE_KEY.")
+        st.stop()
+
     secrets_dict = {
         "web": {
             "client_id": client_id,
@@ -113,7 +118,7 @@ def get_google_authenticator():
     return Authenticate(
         secret_credentials_path=str(secrets_path),
         cookie_name="eduverse_google_auth",
-        cookie_key="eduverse_secret_key",
+        cookie_key=cookie_key,
         redirect_uri=redirect_uri
     )
 

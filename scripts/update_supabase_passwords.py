@@ -30,11 +30,11 @@ def main():
     print("\n--- STEP 1 & 2: GENERATED BCRYPT HASHES ---")
     print(f"Admin Username  : admin")
     print(f"Admin Password  : [REDACTED]")
-    print(f"Admin Hash      : {admin_hash}")
+    print(f"Admin Hash      : [REDACTED]")
     
     print(f"\nTeacher Username: teacher")
     print(f"Teacher Password: [REDACTED]")
-    print(f"Teacher Hash    : {teacher_hash}")
+    print(f"Teacher Hash    : [REDACTED]")
     
     # Step 3: Attempt Supabase Update
     print("\n--- STEP 3: ATTEMPTING SUPABASE API UPDATE ---")
@@ -48,29 +48,16 @@ def main():
         
         # 1. Update Admin
         res_admin = supabase.table("users").update({"password_hash": admin_hash}).eq("username", "admin").execute()
-        print("Admin update query sent. Rows affected:", len(res_admin.data))
+        print("Admin update query completed.")
         
         # 2. Update Teacher
         res_teacher = supabase.table("users").update({"password_hash": teacher_hash}).eq("username", "teacher").execute()
-        print("Teacher update query sent. Rows affected:", len(res_teacher.data))
+        print("Teacher update query completed.")
         
     except Exception as e:
-        print("Supabase client update failed (this is expected if RLS prevents client updates):", e)
+        print("Supabase client update failed:", e)
         
-    print("\n--- SQL WORKAROUND FOR SUPABASE SQL EDITOR ---")
-    print("If the API update affected 0 rows due to empty table or RLS restrictions,")
-    print("please copy-paste and execute this SQL block inside your Supabase Dashboard SQL Editor:")
-    print("--------------------------------------------------------------------------------")
-    print(f"""
--- Ensure users table exists and populate admin & teacher with verified bcrypt hashes
-INSERT INTO users (id, username, password_hash, role, email)
-VALUES 
-(999, 'admin', '{admin_hash}', 'Admin', 'admin@eduverse.ai'),
-(998, 'teacher', '{teacher_hash}', 'Teacher', 'teacher@eduverse.ai')
-ON CONFLICT (username) DO UPDATE 
-SET password_hash = EXCLUDED.password_hash;
-""")
-    print("--------------------------------------------------------------------------------")
+    print("\n[+] Done.")
 
 if __name__ == "__main__":
     main()

@@ -10,6 +10,34 @@ def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 def main():
+    import sys
+    allow_random = os.environ.get("EDUVERSE_ALLOW_RANDOM_DEV_PASSWORDS", "false").lower() == "true"
+
+    admin_raw = os.environ.get("EDUVERSE_ADMIN_PASSWORD")
+    teacher_raw = os.environ.get("EDUVERSE_TEACHER_PASSWORD")
+    student_raw = os.environ.get("EDUVERSE_STUDENT_PASSWORD")
+
+    if not admin_raw or not teacher_raw or not student_raw:
+        if allow_random:
+            import secrets
+            print("[!] WARNING: Missing required password environment variables. Falling back to secure random generation since EDUVERSE_ALLOW_RANDOM_DEV_PASSWORDS=true.")
+            admin_raw = admin_raw or secrets.token_urlsafe(16)
+            teacher_raw = teacher_raw or secrets.token_urlsafe(16)
+            student_raw = student_raw or secrets.token_urlsafe(16)
+        else:
+            print("[!] Error: Required password environment variables are missing!")
+            print("    Please set the following environment variables:")
+            print("      - EDUVERSE_ADMIN_PASSWORD")
+            print("      - EDUVERSE_TEACHER_PASSWORD")
+            print("      - EDUVERSE_STUDENT_PASSWORD")
+            print("\n    To run with randomized passwords for local dev, run with environment variable:")
+            print("      EDUVERSE_ALLOW_RANDOM_DEV_PASSWORDS=true")
+            raise SystemExit(1)
+
+    admin_pw = hash_password(admin_raw)
+    teacher_pw = hash_password(teacher_raw)
+    student_pw = hash_password(student_raw)
+
     ROOT = Path(__file__).resolve().parent
     db_path = str(ROOT / "eduverse.db")
     csv_path = str(ROOT / "data" / "sample_data.csv")
@@ -98,33 +126,7 @@ def main():
     print("Tables created successfully.")
     
     # 3. Seed Users
-    # Hashed passwords (read from environment variables with fail-fast production safety)
-    allow_random = os.environ.get("EDUVERSE_ALLOW_RANDOM_DEV_PASSWORDS", "false").lower() == "true"
-    
-    admin_raw = os.environ.get("EDUVERSE_ADMIN_PASSWORD")
-    teacher_raw = os.environ.get("EDUVERSE_TEACHER_PASSWORD")
-    student_raw = os.environ.get("EDUVERSE_STUDENT_PASSWORD")
-    
-    if not admin_raw or not teacher_raw or not student_raw:
-        if allow_random:
-            import secrets
-            print("[!] WARNING: Missing required password environment variables. Falling back to secure random generation since EDUVERSE_ALLOW_RANDOM_DEV_PASSWORDS=true.")
-            admin_raw = admin_raw or secrets.token_urlsafe(16)
-            teacher_raw = teacher_raw or secrets.token_urlsafe(16)
-            student_raw = student_raw or secrets.token_urlsafe(16)
-        else:
-            print("[!] Error: Required password environment variables are missing!")
-            print("    Please set the following environment variables:")
-            print("      - EDUVERSE_ADMIN_PASSWORD")
-            print("      - EDUVERSE_TEACHER_PASSWORD")
-            print("      - EDUVERSE_STUDENT_PASSWORD")
-            print("\n    To run with randomized passwords for local dev, run with environment variable:")
-            print("      EDUVERSE_ALLOW_RANDOM_DEV_PASSWORDS=true")
-            raise ValueError("Missing required password environment variables!")
-            
-    admin_pw = hash_password(admin_raw)
-    teacher_pw = hash_password(teacher_raw)
-    student_pw = hash_password(student_raw)
+    # Hashed passwords (pre-validated and hashed at start)
     
     # Standard Admin (using high ID to avoid student conflicts)
     cur.execute("INSERT INTO users (id, username, password_hash, role, email) VALUES (?, ?, ?, ?, ?)",

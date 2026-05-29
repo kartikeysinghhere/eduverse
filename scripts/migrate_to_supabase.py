@@ -45,13 +45,42 @@ def batch_insert(supabase, table_name, data_list, batch_size=200):
     print(f"Successfully loaded all {total} rows into '{table_name}'.")
 
 def main():
+    import sys
     print("====================================================")
     print("    EduVerse Supabase Production Migration Script   ")
     print("====================================================")
     
+    # 1. Enforce strict environment variables check at the very top
     if not SUPABASE_URL or not SUPABASE_KEY:
         print("Error: SUPABASE_URL and SUPABASE_KEY must be configured in your .env file!")
-        return
+        raise SystemExit(1)
+
+    allow_random = os.environ.get("EDUVERSE_ALLOW_RANDOM_DEV_PASSWORDS", "false").lower() == "true"
+    admin_raw = os.environ.get("EDUVERSE_ADMIN_PASSWORD")
+    teacher_raw = os.environ.get("EDUVERSE_TEACHER_PASSWORD")
+    student_raw = os.environ.get("EDUVERSE_STUDENT_PASSWORD")
+
+    if not admin_raw or not teacher_raw or not student_raw:
+        if allow_random:
+            import secrets
+            print("[!] WARNING: Missing required password environment variables. Falling back to secure random generation since EDUVERSE_ALLOW_RANDOM_DEV_PASSWORDS=true.")
+            admin_raw = admin_raw or secrets.token_urlsafe(16)
+            teacher_raw = teacher_raw or secrets.token_urlsafe(16)
+            student_raw = student_raw or secrets.token_urlsafe(16)
+        else:
+            print("[!] Error: Required password environment variables are missing for Supabase migration!")
+            print("    Please set the following environment variables:")
+            print("      - EDUVERSE_ADMIN_PASSWORD")
+            print("      - EDUVERSE_TEACHER_PASSWORD")
+            print("      - EDUVERSE_STUDENT_PASSWORD")
+            print("\n    To run with randomized passwords for local dev, run with environment variable:")
+            print("      EDUVERSE_ALLOW_RANDOM_DEV_PASSWORDS=true")
+            raise SystemExit(1)
+
+    # Hash passwords immediately at start
+    admin_pw = hash_password(admin_raw)
+    teacher_pw = hash_password(teacher_raw)
+    student_pw = hash_password(student_raw)
         
     csv_path = ROOT / "data" / "sample_data.csv"
     if not csv_path.exists():
@@ -174,32 +203,7 @@ def main():
     # --- 7. PREPARE & LOAD OPTIONAL USERS TABLE ---
     print("\nPreparing users table credentials...")
     users_to_load = []
-    allow_random = os.environ.get("EDUVERSE_ALLOW_RANDOM_DEV_PASSWORDS", "false").lower() == "true"
-    
-    admin_raw = os.environ.get("EDUVERSE_ADMIN_PASSWORD")
-    teacher_raw = os.environ.get("EDUVERSE_TEACHER_PASSWORD")
-    student_raw = os.environ.get("EDUVERSE_STUDENT_PASSWORD")
-    
-    if not admin_raw or not teacher_raw or not student_raw:
-        if allow_random:
-            import secrets
-            print("[!] WARNING: Missing required password environment variables. Falling back to secure random generation since EDUVERSE_ALLOW_RANDOM_DEV_PASSWORDS=true.")
-            admin_raw = admin_raw or secrets.token_urlsafe(16)
-            teacher_raw = teacher_raw or secrets.token_urlsafe(16)
-            student_raw = student_raw or secrets.token_urlsafe(16)
-        else:
-            print("[!] Error: Required password environment variables are missing for Supabase migration!")
-            print("    Please set the following environment variables:")
-            print("      - EDUVERSE_ADMIN_PASSWORD")
-            print("      - EDUVERSE_TEACHER_PASSWORD")
-            print("      - EDUVERSE_STUDENT_PASSWORD")
-            print("\n    To run with randomized passwords for local dev, run with environment variable:")
-            print("      EDUVERSE_ALLOW_RANDOM_DEV_PASSWORDS=true")
-            raise ValueError("Missing required password environment variables!")
-            
-    admin_pw = hash_password(admin_raw)
-    teacher_pw = hash_password(teacher_raw)
-    student_pw = hash_password(student_raw)
+    # Hashed passwords (pre-validated and hashed at start of main)
     
     # Admin
     users_to_load.append({
