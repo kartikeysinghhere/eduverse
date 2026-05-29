@@ -9,3 +9,4 @@ supabase
 groq
 fpdf2
 faker
+streamlit-google-auth
