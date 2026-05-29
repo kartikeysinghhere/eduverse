@@ -2,6 +2,7 @@ import os
 import sqlite3
 import bcrypt
 import logging
+import streamlit as st
 from dotenv import load_dotenv
 from pathlib import Path
 
@@ -101,3 +102,100 @@ def sign_in(username, password):
     except Exception as e:
         logger.error("SQLite fallback authentication encountered a connection/query error.")
         return None
+
+def sign_in_with_google(google_user_info):
+    """
+    Checks if email exists in users table.
+    If yes, returns the existing user.
+    If no, inserts a new Student user and returns them.
+    """
+    if not google_user_info or not google_user_info.get("email"):
+        logger.error("No email found in google_user_info")
+        return None
+        
+    email = google_user_info["email"].strip()
+    username = email.split("@")[0]
+    
+    # 1. Supabase Mode
+    if DB_MODE == "supabase":
+        try:
+            from supabase import create_client
+            URL = os.environ.get("SUPABASE_URL")
+            KEY = os.environ.get("SUPABASE_KEY")
+            
+            if not URL or not KEY:
+                logger.error("Supabase environment configuration missing.")
+                return None
+                
+            supabase = create_client(URL, KEY)
+            # Check if email exists
+            response = supabase.table("users").select("*").eq("email", email).execute()
+            if response.data:
+                return response.data[0]
+                
+            # If no, insert new Student user
+            from datetime import datetime
+            import uuid
+            
+            # Generate a secure dummy password hash since password_hash is NOT NULL
+            dummy_pw = str(uuid.uuid4())
+            dummy_hash = bcrypt.hashpw(dummy_pw.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            
+            new_user = {
+                "username": username,
+                "email": email,
+                "role": "Student",
+                "password_hash": dummy_hash,
+                "created_at": datetime.now().isoformat()
+            }
+            
+            insert_res = supabase.table("users").insert(new_user).execute()
+            if insert_res.data:
+                return insert_res.data[0]
+            return None
+        except Exception as e:
+            logger.error(f"Supabase sign_in_with_google error: {e}")
+            return None
+            
+    # 2. SQLite Fallback Flow
+    try:
+        conn = get_db_connection()
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        
+        # Check by email
+        cur.execute("SELECT * FROM users WHERE email = ?", (email,))
+        row = cur.fetchone()
+        
+        if row:
+            user = dict(row)
+            conn.close()
+            return user
+            
+        # If not exists, insert new Student user (SQLite doesn't have created_at)
+        import uuid
+        dummy_pw = str(uuid.uuid4())
+        dummy_hash = bcrypt.hashpw(dummy_pw.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        
+        cur.execute(
+            "INSERT INTO users (username, password_hash, role, email) VALUES (?, ?, ?, ?)",
+            (username, dummy_hash, "Student", email)
+        )
+        conn.commit()
+        
+        # Fetch the newly created user
+        cur.execute("SELECT * FROM users WHERE email = ?", (email,))
+        new_row = cur.fetchone()
+        conn.close()
+        
+        if new_row:
+            return dict(new_row)
+        return None
+    except Exception as e:
+        logger.error(f"SQLite sign_in_with_google error: {e}")
+        return None
+
+def require_role(allowed_roles: list):
+    if not st.session_state.get("user") or st.session_state.user.get("role") not in allowed_roles:
+        st.error("Access denied")
+        st.stop()

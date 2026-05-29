@@ -6,9 +6,10 @@ import time
 from collections import defaultdict
 from dotenv import load_dotenv
 from pathlib import Path
-from utils.auth import sign_in
+from utils.auth import sign_in, sign_in_with_google, require_role
 from utils.db import log_action
 from utils.notifications import show_notifications
+
 
 @st.cache_resource
 def get_login_tracker():
@@ -86,6 +87,63 @@ if st.session_state.get("logged_in") and "login_time" in st.session_state:
         st.session_state.role = None
         st.warning("Session expired. Please log in again.")
         st.rerun()
+
+# Google OAuth Setup
+def get_google_authenticator():
+    client_id = os.environ.get("GOOGLE_CLIENT_ID", "your_client_id")
+    client_secret = os.environ.get("GOOGLE_CLIENT_SECRET", "your_client_secret")
+    redirect_uri = os.environ.get("GOOGLE_REDIRECT_URI", "http://localhost:8501")
+    
+    secrets_dict = {
+        "web": {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+            "redirect_uris": [redirect_uri]
+        }
+    }
+    
+    secrets_path = ROOT / "client_secrets.json"
+    with open(secrets_path, "w") as f:
+        json.dump(secrets_dict, f, indent=4)
+        
+    from streamlit_google_auth import Authenticate
+    return Authenticate(
+        secret_credentials_path=str(secrets_path),
+        cookie_name="eduverse_google_auth",
+        cookie_key="eduverse_secret_key",
+        redirect_uri=redirect_uri
+    )
+
+authenticator = get_google_authenticator()
+authenticator.check_authentification()
+
+# Google Authentication Success Flow
+if st.session_state.get("connected") and not st.session_state.get("logged_in"):
+    google_user_info = st.session_state.get("user_info")
+    if google_user_info:
+        result = sign_in_with_google(google_user_info)
+        if result:
+            # Clear session to prevent session fixation
+            for key in list(st.session_state.keys()):
+                if key not in ["connected", "user_info", "oauth_id"]:
+                    del st.session_state[key]
+                    
+            st.session_state.logged_in = True
+            st.session_state.user = result
+            st.session_state.role = result['role']
+            st.session_state.login_time = time.time()
+            
+            # Re-initialize other required state variables
+            st.session_state.theme = "dark"
+            st.session_state.analytics_data = {"visits": {}, "searches": []}
+            st.session_state.chat_history = [{"role": "assistant", "content": "Hello! I am your EduVerse AI Assistant. Kaise help kar sakta hoon?"}]
+            
+            log_action(result['id'], "Google Login")
+            st.rerun()
+
 
 
 # Load CSS
@@ -166,10 +224,16 @@ def sidebar_nav():
             log_action(st.session_state.user['id'], "Logout")
         except Exception:
             pass
+        # Google authenticator logout to clear cookies
+        try:
+            authenticator.logout()
+        except Exception:
+            pass
         # Completely clear session state
         for key in list(st.session_state.keys()):
             del st.session_state[key]
         st.rerun()
+
         
     return st.session_state.selection
 
@@ -183,12 +247,15 @@ def main():
     else:
         # Route to specific dashboards based on role
         if selection == "How It Works":
+            require_role(['Admin', 'Teacher', 'Student'])
             import pages.how_it_works as how_it_works
             how_it_works.show()
         elif selection == "🤖 AI Chat":
+            require_role(['Admin', 'Teacher', 'Student'])
             from pages import ai_insights
             ai_insights.show_chat()
         elif st.session_state.role == "Student":
+            require_role(['Admin', 'Teacher', 'Student'])
             if selection == "AI Insights":
                 import pages.ai_insights as ai_insights
                 ai_insights.show()
@@ -196,9 +263,11 @@ def main():
                 import pages.student_dashboard as student
                 student.show(selection)
         elif st.session_state.role == "Teacher":
+            require_role(['Admin', 'Teacher'])
             import pages.teacher_dashboard as teacher
             teacher.show(selection)
         elif st.session_state.role == "Admin":
+            require_role(['Admin'])
             if selection == "Smart Analytics":
                 import pages.analytics as analytics
                 analytics.show()
@@ -206,8 +275,10 @@ def main():
                 import pages.admin_dashboard as admin
                 admin.show(selection)
         elif selection == "AI Insights":
+            require_role(['Admin', 'Teacher', 'Student'])
             from pages import ai_insights
             ai_insights.show()
+
 
 
 def show_landing_page():
@@ -326,10 +397,17 @@ def show_landing_page():
                         record_attempt(username_cleaned)
                         st.error("Invalid credentials")
             
-            st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+            # --- OR Divider ---
+            st.markdown("<div style='text-align: center; margin: 15px 0; color: #64748b; font-weight: bold;'>— OR —</div>", unsafe_allow_html=True)
+            
+            # Google OAuth Login Button
+            authenticator.login(color="blue", justify_content="center")
+            
+            st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
             if st.button("← Return to Home", key="back_home", use_container_width=True):
                 st.session_state.show_login = False
                 st.rerun()
+
 
 if __name__ == "__main__":
     main()
