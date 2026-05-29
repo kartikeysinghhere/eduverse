@@ -118,31 +118,50 @@ def get_google_authenticator():
     )
 
 authenticator = get_google_authenticator()
-authenticator.check_authentification()
 
-# Google Authentication Success Flow
-if st.session_state.get("connected") and not st.session_state.get("logged_in"):
-    google_user_info = st.session_state.get("user_info")
-    if google_user_info:
-        result = sign_in_with_google(google_user_info)
-        if result:
-            # Clear session to prevent session fixation
-            for key in list(st.session_state.keys()):
-                if key not in ["connected", "user_info", "oauth_id"]:
-                    del st.session_state[key]
-                    
-            st.session_state.logged_in = True
-            st.session_state.user = result
-            st.session_state.role = result['role']
-            st.session_state.login_time = time.time()
-            
-            # Re-initialize other required state variables
-            st.session_state.theme = "dark"
-            st.session_state.analytics_data = {"visits": {}, "searches": []}
-            st.session_state.chat_history = [{"role": "assistant", "content": "Hello! I am your EduVerse AI Assistant. Kaise help kar sakta hoon?"}]
-            
-            log_action(result['id'], "Google Login")
-            st.rerun()
+# Only run OAuth callback check if the user is not already logged in
+if not st.session_state.get("logged_in"):
+    authenticator.check_authentification()
+
+    # Google Authentication Success Flow
+    if st.session_state.get("connected"):
+        google_user_info = st.session_state.get("user_info")
+        if google_user_info:
+            result = sign_in_with_google(google_user_info)
+            if result:
+                # Clear session to prevent session fixation
+                for key in list(st.session_state.keys()):
+                    if key not in ["connected", "user_info", "oauth_id"]:
+                        del st.session_state[key]
+                        
+                st.session_state.logged_in = True
+                st.session_state.user = result
+                st.session_state.role = result['role']
+                st.session_state.login_time = time.time()
+                st.session_state.auth_provider = "google"
+                
+                # Re-initialize other required state variables
+                st.session_state.theme = "dark"
+                st.session_state.analytics_data = {"visits": {}, "searches": []}
+                st.session_state.chat_history = [{"role": "assistant", "content": "Hello! I am your EduVerse AI Assistant. Kaise help kar sakta hoon?"}]
+                
+                log_action(result['id'], "Google Login")
+                st.rerun()
+            else:
+                # Google email not mapped in table! Access Denied and clean up
+                st.session_state.connected = False
+                if "user_info" in st.session_state:
+                    del st.session_state["user_info"]
+                if "oauth_id" in st.session_state:
+                    del st.session_state["oauth_id"]
+                try:
+                    authenticator.logout()
+                except Exception:
+                    pass
+                st.session_state.google_auth_error = "Access denied: Your Gmail account is not registered in EduVerse."
+                st.session_state.show_login = True
+                st.rerun()
+
 
 
 
@@ -362,6 +381,10 @@ def show_landing_page():
             st.markdown('<div class="gradient-text" style="text-align: center; font-size: 2rem; font-weight: 900; letter-spacing: -1.5px; margin-bottom: 2px;">Welcome Back</div>', unsafe_allow_html=True)
             st.markdown('<div style="text-align: center; color: #94a3b8; font-size: 0.9rem; margin-bottom: 0.8rem;">Secure entry to your EduVerse account</div>', unsafe_allow_html=True)
             
+            if st.session_state.get("google_auth_error"):
+                st.error(st.session_state.google_auth_error)
+                del st.session_state["google_auth_error"]
+                
             username = st.text_input("Username", placeholder="e.g. admin")
             password = st.text_input("Password", type="password", placeholder="••••••••")
             
