@@ -1,0 +1,33 @@
+# Environment & Secrets
+.env
+*.env
+.env.*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+.venv/
+env/
+
+# Database (local only)
+*.db
+*.sqlite
+data/eduverse.db
+
+# ML Models (large files)
+data/models/*.pkl
+*.pkl
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Antigravity scratch
+scratch/

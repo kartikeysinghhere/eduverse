@@ -1,0 +1,11 @@
+streamlit>=1.32.0
+pandas
+numpy
+scikit-learn
+plotly
+bcrypt
+python-dotenv
+supabase
+groq
+fpdf2
+faker

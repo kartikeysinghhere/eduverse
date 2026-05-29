@@ -1,0 +1,299 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+    --primary: #00f2fe;
+    --secondary: #4facfe;
+    --accent-1: #43e97b;
+    --accent-2: #fa709a;
+    --bg-dark: #0f172a;
+    --card-bg: rgba(255, 255, 255, 0.03);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glow-primary: rgba(0, 242, 254, 0.5);
+}
+
+* {
+    font-family: 'Inter', sans-serif;
+}
+
+/* Hide Streamlit Header & Footer */
+header, footer {
+    visibility: hidden;
+    height: 0;
+}
+
+/* Global Background with Particles Feel */
+.stApp {
+    background: radial-gradient(circle at 20% 20%, #1e293b 0%, #0f172a 100%);
+    background-attachment: fixed;
+}
+
+.stApp::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background-image: 
+        radial-gradient(white, rgba(255,255,255,.2) 2px, transparent 40px),
+        radial-gradient(white, rgba(255,255,255,.15) 1px, transparent 30px),
+        radial-gradient(white, rgba(255,255,255,.1) 2px, transparent 40px);
+    background-size: 550px 550px, 350px 350px, 250px 250px;
+    background-position: 0 0, 40px 60px, 130px 270px;
+    opacity: 0.1;
+    z-index: -1;
+    animation: backgroundMove 100s linear infinite;
+}
+
+@keyframes backgroundMove {
+    from { background-position: 0 0, 40px 60px, 130px 270px; }
+    to { background-position: 550px 550px, 390px 410px, 380px 820px; }
+}
+
+/* Glassmorphism Card */
+.glass-card {
+    background: var(--card-bg);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 28px;
+    padding: 2.5rem;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.glass-card:hover {
+    transform: translateY(-8px) scale(1.01);
+    box-shadow: 0 30px 60px rgba(0, 242, 254, 0.1);
+    border: 1px solid rgba(0, 242, 254, 0.2);
+}
+
+/* KPI Metric Cards */
+.metric-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--glass-border);
+    border-radius: 24px;
+    padding: 1.8rem;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.metric-card:hover {
+    border: 1px solid var(--primary);
+    box-shadow: 0 0 30px rgba(0, 242, 254, 0.15);
+}
+
+.metric-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; width: 100%; height: 3px;
+    background: linear-gradient(90deg, transparent, var(--primary), transparent);
+    opacity: 0.5;
+}
+
+.metric-icon {
+    font-size: 1.8rem;
+    margin-bottom: 1rem;
+    display: block;
+}
+
+.metric-value {
+    font-size: 2.8rem;
+    font-weight: 800;
+    letter-spacing: -2px;
+    line-height: 1;
+    background: #fff;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* Sidebar Styling */
+[data-testid="stSidebar"] {
+    background: rgba(10, 15, 30, 0.95) !important;
+    backdrop-filter: blur(30px) !important;
+    border-right: 1px solid var(--glass-border) !important;
+}
+
+.sidebar-logo {
+    font-size: 2rem;
+    font-weight: 900;
+    text-align: center;
+    margin-bottom: 2.5rem;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -1px;
+}
+
+.sidebar-user-card {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 20px;
+    padding: 1.5rem;
+    margin: 0 10px 2.5rem;
+    text-align: center;
+    border: 1px solid var(--glass-border);
+}
+
+.avatar-circle {
+    width: 70px;
+    height: 70px;
+    background: var(--bg-dark);
+    border: 3px solid transparent;
+    background-image: linear-gradient(var(--bg-dark), var(--bg-dark)), radial-gradient(circle at top left, var(--primary), var(--secondary));
+    background-origin: border-box;
+    background-clip: content-box, border-box;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0 auto 1rem;
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--primary);
+    box-shadow: 0 0 20px rgba(0, 242, 254, 0.2);
+}
+
+/* Nav Buttons Custom Styling */
+div[data-testid="stVerticalBlock"] > div > button {
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    color: #94a3b8 !important;
+    text-align: left !important;
+    padding: 0.8rem 1.2rem !important;
+    border-radius: 14px !important;
+    transition: all 0.3s ease !important;
+    font-weight: 500 !important;
+}
+
+div[data-testid="stVerticalBlock"] > div > button:hover {
+    background: rgba(255, 255, 255, 0.05) !important;
+    color: #fff !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2) !important;
+    transform: translateX(5px);
+}
+
+/* Gradient text utility */
+.gradient-text {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* Animations */
+.fade-in {
+    animation: fadeIn 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Hero Section */
+.hero-container {
+    padding: 6rem 2rem;
+    text-align: center;
+}
+
+/* Floating Animation */
+@keyframes floating {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-20px); }
+    100% { transform: translateY(0px); }
+}
+
+.floating-card {
+    animation: floating 6s ease-in-out infinite;
+}
+
+/* Custom Typing Loader Animation */
+.typing-container {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 0;
+}
+.typing-loader {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #cbd5e1;
+    animation: typing-dots 1.4s infinite both;
+}
+.typing-loader:nth-child(2) {
+    animation-delay: 0.2s;
+}
+.typing-loader:nth-child(3) {
+    animation-delay: 0.4s;
+}
+@keyframes typing-dots {
+    0%, 80%, 100% {
+        transform: scale(0.6);
+        opacity: 0.4;
+    }
+    40% {
+        transform: scale(1.2);
+        opacity: 1;
+    }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   UNAUTHENTICATED / LOGIN VIEW - ZERO SCROLL OVERRIDES
+   ────────────────────────────────────────────────────────────── */
+
+/* Eliminate scroll bars completely on login/landing views */
+.stApp:has(.unauthenticated-root), 
+.stApp:has(.unauthenticated-root) [data-testid="stAppViewContainer"],
+.stApp:has(.unauthenticated-root) [data-testid="stAppViewBlockContainer"],
+.stApp:has(.unauthenticated-root) .main,
+.stApp:has(.unauthenticated-root) .main .block-container {
+    overflow: hidden !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+}
+
+/* Reduce top padding on block container to 1rem max */
+.stApp:has(.unauthenticated-root) .main .block-container {
+    padding-top: 0.8rem !important;
+    padding-bottom: 0.8rem !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+}
+
+/* Tighten gaps between block-level components */
+.stApp:has(.unauthenticated-root) [data-testid="stVerticalBlock"] {
+    gap: 0.4rem !important;
+}
+
+/* Reduce login card padding and margin */
+.stApp:has(.unauthenticated-root) [data-testid="column"]:nth-of-type(2) {
+    padding: 1.4rem 2rem !important; /* Highly optimized card padding */
+    border-radius: 20px !important;
+}
+
+/* Optimize header heights & margins */
+.stApp:has(.unauthenticated-root) .sidebar-logo {
+    font-size: 2.8rem !important; /* Compact logo size */
+    margin-bottom: 0px !important;
+    line-height: 1.1 !important;
+}
+
+/* Scale down the "Welcome Back" header font-size and margin */
+.stApp:has(.unauthenticated-root) .gradient-text {
+    line-height: 1.2 !important;
+}
+
+/* Compact input labels and field paddings */
+.stApp:has(.unauthenticated-root) label {
+    margin-bottom: 0.2rem !important;
+}
+
+.stApp:has(.unauthenticated-root) input {
+    padding: 0.4rem 0.6rem !important;
+    font-size: 0.9rem !important;
+}
+
+/* Clean compact spacers */
+.stApp:has(.unauthenticated-root) .stMarkdown div p {
+    margin-bottom: 0.4rem !important;
+}
+
+
