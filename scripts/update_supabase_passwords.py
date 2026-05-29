@@ -22,7 +22,7 @@ def main():
     
     if not admin_pw or not teacher_pw:
         print("[!] Error: EDUVERSE_ADMIN_PASSWORD and EDUVERSE_TEACHER_PASSWORD must be set in environment variables!")
-        return
+        raise SystemExit(1)
         
     admin_hash = bcrypt.hashpw(admin_pw.encode('utf-8'), bcrypt.gensalt(12)).decode('utf-8')
     teacher_hash = bcrypt.hashpw(teacher_pw.encode('utf-8'), bcrypt.gensalt(12)).decode('utf-8')
@@ -40,7 +40,7 @@ def main():
     print("\n--- STEP 3: ATTEMPTING SUPABASE API UPDATE ---")
     if not SUPABASE_URL or not SUPABASE_KEY:
         print("Error: Supabase credentials not found in env!")
-        return
+        raise SystemExit(1)
         
     try:
         supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -48,14 +48,21 @@ def main():
         
         # 1. Update Admin
         res_admin = supabase.table("users").update({"password_hash": admin_hash}).eq("username", "admin").execute()
+        if not res_admin.data:
+            print("[!] Error: Admin update affected 0 rows.")
+            raise SystemExit(1)
         print("Admin update query completed.")
         
         # 2. Update Teacher
         res_teacher = supabase.table("users").update({"password_hash": teacher_hash}).eq("username", "teacher").execute()
+        if not res_teacher.data:
+            print("[!] Error: Teacher update affected 0 rows.")
+            raise SystemExit(1)
         print("Teacher update query completed.")
         
     except Exception as e:
         print("Supabase client update failed:", e)
+        raise SystemExit(1)
         
     print("\n[+] Done.")
 

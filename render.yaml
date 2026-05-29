@@ -13,3 +13,21 @@ services:
         sync: false
       - key: GROQ_API_KEY
         sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+      - key: GOOGLE_COOKIE_KEY
+        sync: false
+      - key: EDUVERSE_ADMIN_EMAIL
+        sync: false
+      - key: EDUVERSE_ADMIN_PASSWORD
+        sync: false
+      - key: EDUVERSE_TEACHER_EMAIL
+        sync: false
+      - key: EDUVERSE_TEACHER_PASSWORD
+        sync: false
+      - key: EDUVERSE_STUDENT_PASSWORD
+        sync: false
