@@ -8,7 +8,9 @@ from pathlib import Path
 
 # Configure secure logging
 logger = logging.getLogger("eduverse.auth")
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(dotenv_path=ROOT / ".env")
@@ -53,8 +55,9 @@ def sign_in(username, password):
         logger.warning(f"Authentication rejected due to excessive input lengths.")
         return None
 
-    # Strip whitespace to prevent formatting issues
-    username = username.strip()
+    # Strip whitespace to prevent formatting issues. The login field accepts
+    # either the canonical username (admin/teacher) or the registered email.
+    login_id = username.strip()
 
     # 2. Supabase Authentication Flow
     if DB_MODE == "supabase":
@@ -68,8 +71,11 @@ def sign_in(username, password):
                 return None
                 
             supabase = create_client(URL, KEY)
-            # Fetch user securely
-            response = supabase.table("users").select("*").eq("username", username).execute()
+            # Fetch user securely by username first, then by email. This keeps
+            # existing admin/teacher logins stable while allowing email login.
+            response = supabase.table("users").select("*").eq("username", login_id).execute()
+            if not response.data and "@" in login_id:
+                response = supabase.table("users").select("*").eq("email", login_id).execute()
             
             if response.data:
                 user = response.data[0]
@@ -89,7 +95,10 @@ def sign_in(username, password):
         cur = conn.cursor()
         
         # Safe Parametrized Query
-        cur.execute("SELECT * FROM users WHERE username = ?", (username,))
+        if "@" in login_id:
+            cur.execute("SELECT * FROM users WHERE username = ? OR email = ?", (login_id, login_id))
+        else:
+            cur.execute("SELECT * FROM users WHERE username = ?", (login_id,))
         row = cur.fetchone()
         conn.close()
         

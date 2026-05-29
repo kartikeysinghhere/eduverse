@@ -137,18 +137,20 @@ def main():
         print("\n[!] Local Running Instructions:")
         print("    Option A: Add them to your local '.env' file.")
         print("    Option B: Run with temporary environment variables in PowerShell:")
-        print("      $env:EDUVERSE_ADMIN_EMAIL='admin@eduverse.ai'")
+        print("      $env:EDUVERSE_ADMIN_EMAIL='your-admin-google-email@example.com'")
         print("      $env:EDUVERSE_ADMIN_PASSWORD='YourSecureAdminPassword'")
-        print("      $env:EDUVERSE_TEACHER_EMAIL='teacher@eduverse.ai'")
+        print("      $env:EDUVERSE_TEACHER_EMAIL='your-teacher-google-email@example.com'")
         print("      $env:EDUVERSE_TEACHER_PASSWORD='YourSecureTeacherPassword'")
         print("      python setup_users.py")
         print("\n[!] Render Running Instructions:")
         print("    Go to the Render Dashboard -> Select your Service -> Environment tab.")
         print("    Add these 4 keys and click 'Save Changes' to trigger an automatic redeploy.")
-        return
+        raise SystemExit(1)
         
-    admin_username = admin_email.split("@")[0].strip()
-    teacher_username = teacher_email.split("@")[0].strip()
+    # Keep password-login usernames stable. Email is only the approved Google
+    # OAuth mapping and can be any real Google account address.
+    admin_username = "admin"
+    teacher_username = "teacher"
     
     print("[*] Processing Admin user setup...")
     setup_user(admin_username, admin_email.strip(), admin_password, "Admin")
