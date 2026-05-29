@@ -10,3 +10,8 @@ groq
 fpdf2
 faker
 streamlit-google-auth
+extra-streamlit-components
+google-api-python-client
+google-auth-oauthlib
+google-auth-httplib2
+google-auth
