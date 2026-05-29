@@ -2,11 +2,38 @@ import streamlit as st
 import os
 import json
 import requests
+import time
+from collections import defaultdict
 from dotenv import load_dotenv
 from pathlib import Path
 from utils.auth import sign_in
 from utils.db import log_action
 from utils.notifications import show_notifications
+
+@st.cache_resource
+def get_login_tracker():
+    return defaultdict(list)
+
+def is_login_blocked(username: str) -> bool:
+    if not username:
+        return False
+    tracker = get_login_tracker()
+    now = time.time()
+    # Keep only attempts in the last 5 minutes (300 seconds)
+    tracker[username] = [t for t in tracker[username] if now - t < 300]
+    return len(tracker[username]) >= 5
+
+def record_attempt(username: str):
+    if not username:
+        return
+    tracker = get_login_tracker()
+    tracker[username].append(time.time())
+
+def reset_attempts(username: str):
+    tracker = get_login_tracker()
+    if username in tracker:
+        tracker[username] = []
+
 
 ROOT = Path(__file__).resolve().parent
 load_dotenv(dotenv_path=ROOT / ".env")
@@ -48,6 +75,18 @@ if "analytics_data" not in st.session_state:
     st.session_state.analytics_data = {"visits": {}, "searches": []}
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = [{"role": "assistant", "content": "Hello! I am your EduVerse AI Assistant. Kaise help kar sakta hoon?"}]
+
+# Session expiry check: if session older than 24 hours (86400 seconds), force logout automatically
+if st.session_state.get("logged_in") and "login_time" in st.session_state:
+    if time.time() - st.session_state.login_time > 86400:
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.session_state.logged_in = False
+        st.session_state.user = None
+        st.session_state.role = None
+        st.warning("Session expired. Please log in again.")
+        st.rerun()
+
 
 # Load CSS
 def load_css():
@@ -123,11 +162,13 @@ def sidebar_nav():
 
     st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
     if st.sidebar.button("🚪 Logout", key="logout_btn", use_container_width=True):
-        log_action(st.session_state.user['id'], "Logout")
-        st.session_state.logged_in = False
-        st.session_state.user = None
-        st.session_state.role = None
-        st.session_state.selection = "Dashboard"
+        try:
+            log_action(st.session_state.user['id'], "Logout")
+        except Exception:
+            pass
+        # Completely clear session state
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
         st.rerun()
         
     return st.session_state.selection
@@ -255,15 +296,35 @@ def show_landing_page():
             
             st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
             if st.button("Access Dashboard", use_container_width=True):
-                result = sign_in(username, password)
-                if result:
-                    st.session_state.logged_in = True
-                    st.session_state.user = result
-                    st.session_state.role = result['role']
-                    log_action(result['id'], "Login")
-                    st.rerun()
+                username_cleaned = username.strip() if username else ""
+                
+                if is_login_blocked(username_cleaned):
+                    st.error("Too many login attempts. Please try again after 5 minutes.")
                 else:
-                    st.error("Invalid credentials")
+                    result = sign_in(username, password)
+                    if result:
+                        reset_attempts(username_cleaned)
+                        
+                        # Session Fixation Protection: Clear entire session state first
+                        for key in list(st.session_state.keys()):
+                            del st.session_state[key]
+                            
+                        # Set fresh user data and login timestamp
+                        st.session_state.logged_in = True
+                        st.session_state.user = result
+                        st.session_state.role = result['role']
+                        st.session_state.login_time = time.time()
+                        
+                        # Re-initialize other required state variables
+                        st.session_state.theme = "dark"
+                        st.session_state.analytics_data = {"visits": {}, "searches": []}
+                        st.session_state.chat_history = [{"role": "assistant", "content": "Hello! I am your EduVerse AI Assistant. Kaise help kar sakta hoon?"}]
+                        
+                        log_action(result['id'], "Login")
+                        st.rerun()
+                    else:
+                        record_attempt(username_cleaned)
+                        st.error("Invalid credentials")
             
             st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
             if st.button("← Return to Home", key="back_home", use_container_width=True):
