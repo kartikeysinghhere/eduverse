@@ -188,26 +188,38 @@ def show_landing_page():
     if not st.session_state.get("show_login", False):
         st.markdown("""
             <div class="hero-container fade-in">
-                <div class="sidebar-logo" style="font-size: 4.2rem; margin-bottom: 5px; line-height: 1;">EduVerse</div>
-                <p style="font-size: 1.35rem; color: #94a3b8; max-width: 800px; margin: 0 auto 1.5rem; font-weight: 400; line-height: 1.4;">
+                <div class="sidebar-logo" style="font-size: 3.5rem; margin-bottom: 5px; line-height: 1;">EduVerse</div>
+                <p style="font-size: 1.1rem; color: #94a3b8; max-width: 800px; margin: 0 auto 2rem; font-weight: 400; line-height: 1.4;">
                     The <span class="gradient-text" style="font-weight: 800;">World-Class</span> Intelligence layer for modern education.<br/>
                     AI-powered analytics that feel like the future.
                 </p>
-                <div style="display: flex; justify-content: center; gap: 30px; margin-bottom: 1.8rem; margin-top: 2.5rem;">
-                    <div class="glass-card floating-card" style="padding: 0.8rem 2.2rem;">
-                        <span style="font-size: 2.2rem; font-weight: 900; color: #00f2fe; display: block;">1,200+</span>
-                        <span style="color: #64748b; font-weight: 700; letter-spacing: 1px; font-size: 0.8rem;">STUDENTS</span>
+                <div style="display: flex; justify-content: center; gap: 1.5rem; margin-bottom: 1.8rem; margin-top: 2.5rem;">
+                    <div class="glass-card floating-card" style="padding: 1.5rem 2.5rem;">
+                        <span style="font-size: 2.8rem; font-weight: 900; color: #00f2fe; display: block;">1,200+</span>
+                        <span style="color: #64748b; font-weight: 700; letter-spacing: 1px; font-size: 0.85rem;">STUDENTS</span>
                     </div>
-                    <div class="glass-card floating-card" style="padding: 0.8rem 2.2rem; animation-delay: 1s;">
-                        <span style="font-size: 2.2rem; font-weight: 900; color: #43e97b; display: block;">95%</span>
-                        <span style="color: #64748b; font-weight: 700; letter-spacing: 1px; font-size: 0.8rem;">PASS RATE</span>
+                    <div class="glass-card floating-card" style="padding: 1.5rem 2.5rem; animation-delay: 1s;">
+                        <span style="font-size: 2.8rem; font-weight: 900; color: #43e97b; display: block;">95%</span>
+                        <span style="color: #64748b; font-weight: 700; letter-spacing: 1px; font-size: 0.85rem;">PASS RATE</span>
                     </div>
-                    <div class="glass-card floating-card" style="padding: 0.8rem 2.2rem; animation-delay: 2s;">
-                        <span style="font-size: 2.2rem; font-weight: 900; color: #fa709a; display: block;">AI</span>
-                        <span style="color: #64748b; font-weight: 700; letter-spacing: 1px; font-size: 0.8rem;">INSIGHTS</span>
+                    <div class="glass-card floating-card" style="padding: 1.5rem 2.5rem; animation-delay: 2s;">
+                        <span style="font-size: 2.8rem; font-weight: 900; color: #fa709a; display: block;">AI</span>
+                        <span style="color: #64748b; font-weight: 700; letter-spacing: 1px; font-size: 0.85rem;">INSIGHTS</span>
                     </div>
                 </div>
             </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("""
+            <style>
+            div[data-testid="stColumn"] button {
+                min-width: 300px !important;
+                margin-top: 2.5rem !important;
+                font-size: 1.1rem !important;
+                padding: 0.8rem 2rem !important;
+                height: auto !important;
+            }
+            </style>
         """, unsafe_allow_html=True)
         
         col1, col2, col3 = st.columns([1.5, 1, 1.5])
