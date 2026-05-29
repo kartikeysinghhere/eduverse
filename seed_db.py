@@ -98,10 +98,26 @@ def main():
     print("Tables created successfully.")
     
     # 3. Seed Users
-    # Hashed passwords
-    admin_pw = hash_password("EduAdmin@2026")
-    teacher_pw = hash_password("teacher")
-    student_pw = hash_password("student")
+    # Hashed passwords (read from environment variables or dynamically generated)
+    import secrets
+    fallback_admin = secrets.token_urlsafe(16)
+    fallback_teacher = secrets.token_urlsafe(16)
+    
+    admin_raw = os.environ.get("EDUVERSE_ADMIN_PASSWORD")
+    if not admin_raw:
+        print("[!] WARNING: EDUVERSE_ADMIN_PASSWORD not set. Using dynamically generated secure password.")
+        admin_raw = fallback_admin
+        
+    teacher_raw = os.environ.get("EDUVERSE_TEACHER_PASSWORD")
+    if not teacher_raw:
+        print("[!] WARNING: EDUVERSE_TEACHER_PASSWORD not set. Using dynamically generated secure password.")
+        teacher_raw = fallback_teacher
+        
+    student_raw = os.environ.get("EDUVERSE_STUDENT_PASSWORD", "student")
+    
+    admin_pw = hash_password(admin_raw)
+    teacher_pw = hash_password(teacher_raw)
+    student_pw = hash_password(student_raw)
     
     # Standard Admin (using high ID to avoid student conflicts)
     cur.execute("INSERT INTO users (id, username, password_hash, role, email) VALUES (?, ?, ?, ?, ?)",

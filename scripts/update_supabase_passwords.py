@@ -17,19 +17,23 @@ def main():
     print("====================================================")
     
     # Step 1: Generate hashes
-    admin_pw = "EduAdmin@2026"
-    admin_hash = bcrypt.hashpw(admin_pw.encode('utf-8'), bcrypt.gensalt(12)).decode('utf-8')
+    admin_pw = os.environ.get("EDUVERSE_ADMIN_PASSWORD")
+    teacher_pw = os.environ.get("EDUVERSE_TEACHER_PASSWORD")
     
-    teacher_pw = "EduTeacher@2026"
+    if not admin_pw or not teacher_pw:
+        print("[!] Error: EDUVERSE_ADMIN_PASSWORD and EDUVERSE_TEACHER_PASSWORD must be set in environment variables!")
+        return
+        
+    admin_hash = bcrypt.hashpw(admin_pw.encode('utf-8'), bcrypt.gensalt(12)).decode('utf-8')
     teacher_hash = bcrypt.hashpw(teacher_pw.encode('utf-8'), bcrypt.gensalt(12)).decode('utf-8')
     
     print("\n--- STEP 1 & 2: GENERATED BCRYPT HASHES ---")
     print(f"Admin Username  : admin")
-    print(f"Admin Password  : {admin_pw}")
+    print(f"Admin Password  : [REDACTED]")
     print(f"Admin Hash      : {admin_hash}")
     
     print(f"\nTeacher Username: teacher")
-    print(f"Teacher Password: {teacher_pw}")
+    print(f"Teacher Password: [REDACTED]")
     print(f"Teacher Hash    : {teacher_hash}")
     
     # Step 3: Attempt Supabase Update
