@@ -61,44 +61,29 @@ if "analytics_data" not in st.session_state:
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = [{"role": "assistant", "content": "Hello! I am your EduVerse AI Assistant. Kaise help kar sakta hoon?"}]
 
-# Google OAuth Setup (Manual flow with google-auth-oauthlib and requests)
+import secrets
+import hashlib
+import base64
+
 def get_google_auth_url():
-    client_id = os.environ.get("GOOGLE_CLIENT_ID")
-    client_secret = os.environ.get("GOOGLE_CLIENT_SECRET")
-    redirect_uri = os.environ.get("GOOGLE_REDIRECT_URI")
+    # Generate state for CSRF protection
+    state = secrets.token_urlsafe(32)
+    st.session_state["oauth_state"] = state
     
-    if not client_id or not client_secret or not redirect_uri:
-        st.error("[!] Config Error: Missing required Google OAuth environment variables! Please configure GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REDIRECT_URI.")
-        st.stop()
-        
-    from google_auth_oauthlib.flow import Flow
-    
-    client_config = {
-        "web": {
-            "client_id": client_id,
-            "project_id": "eduverse-project",
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token",
-            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-            "client_secret": client_secret,
-            "redirect_uris": [redirect_uri]
-        }
+    # Build auth URL manually - NO PKCE, plain OAuth2
+    params = {
+        "client_id": os.environ.get("GOOGLE_CLIENT_ID"),
+        "redirect_uri": os.environ.get("GOOGLE_REDIRECT_URI"),
+        "response_type": "code",
+        "scope": "openid email profile",
+        "state": state,
+        "access_type": "offline",
+        "prompt": "select_account"
     }
     
-    flow = Flow.from_client_config(
-        client_config,
-        scopes=["openid", "email", "profile"],
-        redirect_uri=redirect_uri
-    )
-    
-    authorization_url, state = flow.authorization_url(
-        access_type='offline',
-        include_granted_scopes='true',
-        prompt='select_account'
-    )
-    
-    st.session_state["oauth_state"] = state
-    return authorization_url
+    from urllib.parse import urlencode
+    base_url = "https://accounts.google.com/o/oauth2/v2/auth"
+    return f"{base_url}?{urlencode(params)}"
 
 def exchange_code_for_user_info(code):
     # Exchange code for token
