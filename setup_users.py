@@ -1,164 +1,128 @@
 import os
 import bcrypt
-import sqlite3
 from datetime import datetime
 from dotenv import load_dotenv
 from pathlib import Path
+from supabase import create_client
 
-# Load environment variables
+# 1. Load .env
 ROOT = Path(__file__).resolve().parent
 load_dotenv(dotenv_path=ROOT / ".env")
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
-DB_MODE = os.environ.get("DB_MODE", "supabase")
 
 def hash_password(password: str) -> str:
-    """Securely hashes passwords using bcrypt with salt rounds matching sign_in."""
-    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt(12)).decode('utf-8')
+    """Securely hashes passwords using bcrypt."""
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
-def setup_user(username, email, password, role):
-    """Idempotently creates or updates a user in both Supabase and SQLite fallback databases."""
-    if not email or not password:
-        print(f"[-] Missing credentials for role {role}. Skipping.")
+def main():
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        print("[-] Error: SUPABASE_URL or SUPABASE_KEY is missing in the environment.")
         return
-        
-    password_hash = hash_password(password)
-    
-    # 1. Supabase Setup
-    if SUPABASE_URL and SUPABASE_KEY:
-        try:
-            from supabase import create_client
-            supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-            
-            # Check by username
-            res = supabase.table("users").select("*").eq("username", username).execute()
-            if res.data:
-                user_id = res.data[0]["id"]
-                supabase.table("users").update({
-                    "email": email,
-                    "password_hash": password_hash,
-                    "role": role
-                }).eq("id", user_id).execute()
-                print(f"[+] Updated existing {role} user (username: {username}) in Supabase.")
-            else:
-                # Check by email
-                res_email = supabase.table("users").select("*").eq("email", email).execute()
-                if res_email.data:
-                    user_id = res_email.data[0]["id"]
-                    supabase.table("users").update({
-                        "username": username,
-                        "password_hash": password_hash,
-                        "role": role
-                    }).eq("id", user_id).execute()
-                    print(f"[+] Updated existing {role} user (email: {email}) in Supabase.")
-                else:
-                    new_user = {
-                        "username": username,
-                        "email": email,
-                        "password_hash": password_hash,
-                        "role": role,
-                        "created_at": datetime.now().isoformat()
-                    }
-                    new_user["id"] = 999 if role == "Admin" else 998
-                    try:
-                        supabase.table("users").insert(new_user).execute()
-                        print(f"[+] Created new {role} user with ID {new_user['id']} in Supabase.")
-                    except Exception:
-                        # Fallback if manual ID causes constraint error
-                        del new_user["id"]
-                        supabase.table("users").insert(new_user).execute()
-                        print(f"[+] Created new {role} user (auto-generated ID) in Supabase.")
-        except Exception as e:
-            print(f"[-] Supabase configuration or update failed for {role}: {e}")
-            
-    # 2. SQLite Fallback Setup
+
+    print("[*] Connecting to Supabase...")
+    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+    users_to_create = [
+        {
+            "username": "admin",
+            "password": "EduAdmin@2026",
+            "role": "Admin",
+            "email": "admin@eduverse.ai",
+            "id": 999
+        },
+        {
+            "username": "teacher",
+            "password": "EduTeacher@2026",
+            "role": "Teacher",
+            "email": "teacher@eduverse.ai",
+            "id": 998
+        }
+    ]
+
+    for user_info in users_to_create:
+        username = user_info["username"]
+        email = user_info["email"]
+        password = user_info["password"]
+        role = user_info["role"]
+        uid = user_info["id"]
+
+        print(f"\n[*] Processing user: {username} ({role})...")
+        password_hash = hash_password(password)
+
+        # Before inserting check if user already exists by username
+        res = supabase.table("users").select("*").eq("username", username).execute()
+        if res.data:
+            existing_user = res.data[0]
+            existing_id = existing_user["id"]
+            print(f"[+] User '{username}' already exists (ID: {existing_id}). Updating details...")
+            supabase.table("users").update({
+                "email": email,
+                "password_hash": password_hash,
+                "role": role
+            }).eq("id", existing_id).execute()
+            print(f"[+] Updated user '{username}' successfully.")
+        else:
+            print(f"[+] User '{username}' does not exist. Inserting...")
+            new_user = {
+                "id": uid,
+                "username": username,
+                "email": email,
+                "password_hash": password_hash,
+                "role": role
+            }
+            try:
+                supabase.table("users").insert(new_user).execute()
+                print(f"[+] Inserted user '{username}' with fixed ID {uid}.")
+            except Exception as e:
+                # If fixed ID fails, let supabase auto-generate or insert without ID
+                print(f"[-] Insertion with ID {uid} failed ({e}). Retrying without manual ID...")
+                del new_user["id"]
+                supabase.table("users").insert(new_user).execute()
+                print(f"[+] Inserted user '{username}' with auto-generated ID.")
+
+    # Keep local SQLite in sync as well
     db_path = ROOT / "eduverse.db"
     if db_path.exists():
+        import sqlite3
         try:
             conn = sqlite3.connect(str(db_path))
             cur = conn.cursor()
-            
-            cur.execute("SELECT id FROM users WHERE username = ?", (username,))
-            row = cur.fetchone()
-            if row:
-                cur.execute(
-                    "UPDATE users SET email = ?, password_hash = ?, role = ? WHERE id = ?",
-                    (email, password_hash, role, row[0])
-                )
-                print(f"[+] Updated existing {role} user (username: {username}) in SQLite.")
-            else:
-                cur.execute("SELECT id FROM users WHERE email = ?", (email,))
-                row_email = cur.fetchone()
-                if row_email:
+            for user_info in users_to_create:
+                username = user_info["username"]
+                email = user_info["email"]
+                password_hash = hash_password(user_info["password"])
+                role = user_info["role"]
+                uid = user_info["id"]
+
+                cur.execute("SELECT id FROM users WHERE username = ?", (username,))
+                row = cur.fetchone()
+                if row:
                     cur.execute(
-                        "UPDATE users SET username = ?, password_hash = ?, role = ? WHERE id = ?",
-                        (username, password_hash, role, row_email[0])
+                        "UPDATE users SET email = ?, password_hash = ?, role = ? WHERE id = ?",
+                        (email, password_hash, role, row[0])
                     )
-                    print(f"[+] Updated existing {role} user (email: {email}) in SQLite.")
                 else:
-                    static_id = 999 if role == "Admin" else 998
-                    try:
-                        cur.execute(
-                            "INSERT INTO users (id, username, password_hash, role, email) VALUES (?, ?, ?, ?, ?)",
-                            (static_id, username, password_hash, role, email)
-                        )
-                        print(f"[+] Created new {role} user with ID {static_id} in SQLite.")
-                    except sqlite3.IntegrityError:
-                        cur.execute(
-                            "INSERT INTO users (username, password_hash, role, email) VALUES (?, ?, ?, ?)",
-                            (username, password_hash, role, email)
-                        )
-                        print(f"[+] Created new {role} user (auto-generated ID) in SQLite.")
+                    cur.execute(
+                        "INSERT INTO users (id, username, password_hash, role, email) VALUES (?, ?, ?, ?, ?)",
+                        (uid, username, password_hash, role, email)
+                    )
             conn.commit()
             conn.close()
-        except Exception as e:
-            print(f"[-] SQLite fallback database update failed for {role}: {e}")
+            print("[+] Local SQLite database updated successfully in sync.")
+        except Exception as sqlite_err:
+            print(f"[-] Failed to update local SQLite database: {sqlite_err}")
 
-def main():
-    print("====================================================")
-    # Using dynamic, environment-based credentials safely (never hardcoded/printed)
-    print("      EduVerse Administrative User Seeding Script      ")
-    print("====================================================")
-    
-    admin_email = os.environ.get("EDUVERSE_ADMIN_EMAIL")
-    admin_password = os.environ.get("EDUVERSE_ADMIN_PASSWORD")
-    
-    teacher_email = os.environ.get("EDUVERSE_TEACHER_EMAIL")
-    teacher_password = os.environ.get("EDUVERSE_TEACHER_PASSWORD")
-    
-    if not admin_email or not admin_password or not teacher_email or not teacher_password:
-        print("[!] Error: Missing required environment variables!")
-        print("    Please ensure the following environment variables are set:")
-        print("      - EDUVERSE_ADMIN_EMAIL")
-        print("      - EDUVERSE_ADMIN_PASSWORD")
-        print("      - EDUVERSE_TEACHER_EMAIL")
-        print("      - EDUVERSE_TEACHER_PASSWORD")
-        print("\n[!] Local Running Instructions:")
-        print("    Option A: Add them to your local '.env' file.")
-        print("    Option B: Run with temporary environment variables in PowerShell:")
-        print("      $env:EDUVERSE_ADMIN_EMAIL='your-admin-google-email@example.com'")
-        print("      $env:EDUVERSE_ADMIN_PASSWORD='YourSecureAdminPassword'")
-        print("      $env:EDUVERSE_TEACHER_EMAIL='your-teacher-google-email@example.com'")
-        print("      $env:EDUVERSE_TEACHER_PASSWORD='YourSecureTeacherPassword'")
-        print("      python setup_users.py")
-        print("\n[!] Render Running Instructions:")
-        print("    Go to the Render Dashboard -> Select your Service -> Environment tab.")
-        print("    Add these 4 keys and click 'Save Changes' to trigger an automatic redeploy.")
-        raise SystemExit(1)
-        
-    # Keep password-login usernames stable. Email is only the approved Google
-    # OAuth mapping and can be any real Google account address.
-    admin_username = "admin"
-    teacher_username = "teacher"
-    
-    print("[*] Processing Admin user setup...")
-    setup_user(admin_username, admin_email.strip(), admin_password, "Admin")
-    
-    print("\n[*] Processing Teacher user setup...")
-    setup_user(teacher_username, teacher_email.strip(), teacher_password, "Teacher")
-    
-    print("\n[+] Database user setup execution completed successfully!")
+    print("\n==============================================")
+    print("[*] Verifying users table in Supabase:")
+    print("==============================================")
+    for username in ["admin", "teacher"]:
+        res = supabase.table("users").select("*").eq("username", username).execute()
+        if res.data:
+            print(f"Row for '{username}': {res.data[0]}")
+        else:
+            print(f"[-] Row for '{username}' NOT FOUND!")
 
 if __name__ == "__main__":
     main()

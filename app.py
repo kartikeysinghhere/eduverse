@@ -39,7 +39,7 @@ def reset_attempts(username: str):
 ROOT = Path(__file__).resolve().parent
 load_dotenv(dotenv_path=ROOT / ".env")
 
-# Page configuration
+# Page configuration (MUST be first Streamlit UI command called)
 st.set_page_config(
     page_title="EduVerse | AI-Powered Analytics",
     page_icon="🚀",
@@ -47,23 +47,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Hide sidebar instantly on app load for unauthenticated users (prevents brief flash)
-if "logged_in" not in st.session_state or not st.session_state.logged_in:
-    st.markdown("""
-        <style>
-        [data-testid="stSidebar"] {
-            display: none !important;
-        }
-        [data-testid="stSidebarCollapseButton"] {
-            display: none !important;
-        }
-        .stApp [data-testid="stSidebar"] {
-            display: none !important;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-
-# Initialize session state
+# Initialize session state early to prevent any key errors in checks
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "user" not in st.session_state:
@@ -76,17 +60,6 @@ if "analytics_data" not in st.session_state:
     st.session_state.analytics_data = {"visits": {}, "searches": []}
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = [{"role": "assistant", "content": "Hello! I am your EduVerse AI Assistant. Kaise help kar sakta hoon?"}]
-
-# Session expiry check: if session older than 24 hours (86400 seconds), force logout automatically
-if st.session_state.get("logged_in") and "login_time" in st.session_state:
-    if time.time() - st.session_state.login_time > 86400:
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
-        st.session_state.logged_in = False
-        st.session_state.user = None
-        st.session_state.role = None
-        st.warning("Session expired. Please log in again.")
-        st.rerun()
 
 # Google OAuth Setup
 def get_google_authenticator():
@@ -124,48 +97,113 @@ def get_google_authenticator():
 
 authenticator = get_google_authenticator()
 
-# Only run OAuth callback check if the user is not already logged in
-if not st.session_state.get("logged_in"):
-    authenticator.check_authentification()
+# 1. At very top of app.py, before anything else, check if Google auth callback params exist in URL
+has_google_callback = False
+try:
+    if "code" in st.query_params:
+        has_google_callback = True
+except AttributeError:
+    try:
+        if "code" in st.experimental_get_query_params():
+            has_google_callback = True
+    except Exception:
+        pass
 
-    # Google Authentication Success Flow
-    if st.session_state.get("connected"):
-        google_user_info = st.session_state.get("user_info")
-        if google_user_info:
-            result = sign_in_with_google(google_user_info)
-            if result:
-                # Clear session to prevent session fixation
-                for key in list(st.session_state.keys()):
-                    if key not in ["connected", "user_info", "oauth_id"]:
-                        del st.session_state[key]
-                        
-                st.session_state.logged_in = True
-                st.session_state.user = result
-                st.session_state.role = result['role']
-                st.session_state.login_time = time.time()
-                st.session_state.auth_provider = "google"
-                
-                # Re-initialize other required state variables
-                st.session_state.theme = "dark"
-                st.session_state.analytics_data = {"visits": {}, "searches": []}
-                st.session_state.chat_history = [{"role": "assistant", "content": "Hello! I am your EduVerse AI Assistant. Kaise help kar sakta hoon?"}]
-                
-                log_action(result['id'], "Google Login")
-                st.rerun()
-            else:
-                # Google email not mapped in table! Access Denied and clean up
-                st.session_state.connected = False
-                if "user_info" in st.session_state:
-                    del st.session_state["user_info"]
-                if "oauth_id" in st.session_state:
-                    del st.session_state["oauth_id"]
-                try:
-                    authenticator.logout()
-                except Exception:
-                    pass
-                st.session_state.google_auth_error = "Access denied: Your Gmail account is not registered in EduVerse."
-                st.session_state.show_login = True
-                st.rerun()
+if has_google_callback and not st.session_state.logged_in:
+    try:
+        authenticator.check_authentification()
+        # Google Authentication Success Flow
+        if st.session_state.get("connected"):
+            google_user_info = st.session_state.get("user_info")
+            if google_user_info:
+                result = sign_in_with_google(google_user_info)
+                if result:
+                    # Clear query params to prevent callback loop on rerun
+                    try:
+                        st.query_params.clear()
+                    except Exception:
+                        try:
+                            st.experimental_set_query_params()
+                        except Exception:
+                            pass
+                    
+                    # Clear session to prevent session fixation
+                    for key in list(st.session_state.keys()):
+                        if key not in ["connected", "user_info", "oauth_id"]:
+                            del st.session_state[key]
+                            
+                    st.session_state.logged_in = True
+                    st.session_state.user = result
+                    st.session_state.role = result['role']
+                    st.session_state.login_time = time.time()
+                    st.session_state.auth_provider = "google"
+                    
+                    # Re-initialize other required state variables
+                    st.session_state.theme = "dark"
+                    st.session_state.analytics_data = {"visits": {}, "searches": []}
+                    st.session_state.chat_history = [{"role": "assistant", "content": "Hello! I am your EduVerse AI Assistant. Kaise help kar sakta hoon?"}]
+                    
+                    log_action(result['id'], "Google Login")
+                    st.rerun()
+                else:
+                    # Google email not mapped in table! Access Denied and clean up
+                    try:
+                        st.query_params.clear()
+                    except Exception:
+                        try:
+                            st.experimental_set_query_params()
+                        except Exception:
+                            pass
+                    st.session_state.connected = False
+                    if "user_info" in st.session_state:
+                        del st.session_state["user_info"]
+                    if "oauth_id" in st.session_state:
+                        del st.session_state["oauth_id"]
+                    try:
+                        authenticator.logout()
+                    except Exception:
+                        pass
+                    st.session_state.google_auth_error = "Access denied: Your Gmail account is not registered in EduVerse."
+                    st.session_state.show_login = True
+                    st.rerun()
+    except Exception as e:
+        print(f"Callback check exception: {e}")
+
+# 2. If st.session_state['logged_in'] is True: skip login page entirely, go straight to dashboard
+if st.session_state.get("logged_in"):
+    st.session_state.show_login = False
+
+# Hide sidebar instantly on app load for unauthenticated users (prevents brief flash)
+if not st.session_state.logged_in:
+    st.markdown("""
+        <style>
+        [data-testid="stSidebar"] {
+            display: none !important;
+        }
+        [data-testid="stSidebarCollapseButton"] {
+            display: none !important;
+        }
+        .stApp [data-testid="stSidebar"] {
+            display: none !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+# Session expiry check: if session older than 24 hours (86400 seconds), force logout automatically
+if st.session_state.get("logged_in") and "login_time" in st.session_state:
+    if time.time() - st.session_state.login_time > 86400:
+        try:
+            authenticator.logout()
+        except Exception:
+            pass
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.session_state.logged_in = False
+        st.session_state.user = None
+        st.session_state.role = None
+        st.warning("Session expired. Please log in again.")
+        st.rerun()
+
 
 
 
