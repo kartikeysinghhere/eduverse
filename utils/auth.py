@@ -116,7 +116,7 @@ def sign_in_with_google(google_user_info):
     """
     Checks if email exists in users table.
     If yes, returns the existing user.
-    If no, returns None (no auto-creation).
+    If no, auto-creates a new student user.
     """
     if not google_user_info or not google_user_info.get("email"):
         logger.error("No email found in google_user_info")
@@ -140,6 +140,23 @@ def sign_in_with_google(google_user_info):
             response = supabase.table("users").select("*").eq("email", email).execute()
             if response.data:
                 return response.data[0]
+            
+            # If email NOT found in DB: auto-create new user with role=Student
+            import secrets
+            username = email.split("@")[0]
+            random_password = secrets.token_urlsafe(32)
+            password_hash = bcrypt.hashpw(random_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            
+            new_user = {
+                "username": username,
+                "email": email,
+                "password_hash": password_hash,
+                "role": "Student"
+            }
+            
+            insert_res = supabase.table("users").insert(new_user).execute()
+            if insert_res.data:
+                return insert_res.data[0]
             return None
         except Exception as e:
             logger.error(f"Supabase sign_in_with_google error: {e}")
@@ -154,10 +171,28 @@ def sign_in_with_google(google_user_info):
         # Check by email
         cur.execute("SELECT * FROM users WHERE email = ?", (email,))
         row = cur.fetchone()
-        conn.close()
         
         if row:
+            conn.close()
             return dict(row)
+            
+        # If email NOT found in DB: auto-create new user with role=Student
+        import secrets
+        username = email.split("@")[0]
+        random_password = secrets.token_urlsafe(32)
+        password_hash = bcrypt.hashpw(random_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        
+        cur.execute(
+            "INSERT INTO users (username, password_hash, role, email) VALUES (?, ?, ?, ?)",
+            (username, password_hash, "Student", email)
+        )
+        conn.commit()
+        
+        cur.execute("SELECT * FROM users WHERE email = ?", (email,))
+        new_row = cur.fetchone()
+        conn.close()
+        if new_row:
+            return dict(new_row)
         return None
     except Exception as e:
         logger.error(f"SQLite sign_in_with_google error: {e}")
