@@ -9,6 +9,7 @@ import io
 import numpy as np
 from utils.charts import apply_neon_theme
 from utils.db import fetch_table
+from datetime import datetime
 
 def show(selection):
     st.markdown('<div class="fade-in">', unsafe_allow_html=True)
@@ -52,6 +53,7 @@ def show_main_dashboard():
     try:
         all_students = fetch_table("students")
         df_all = pd.DataFrame(all_students)
+        df_all.columns = [c.lower() for c in df_all.columns]
         df_all = df_all.sort_values("final_gpa", ascending=False).reset_index(drop=True)
         rank = df_all[df_all['student_id'] == student_id].index[0] + 1
         rank_str = f"{rank}/{len(df_all)}"
@@ -168,6 +170,13 @@ def show_grades():
     except:
         df_marks = generate_subject_marks()
     
+    # Standardize column names dynamically to match what Plotly expect (Subject, Marks)
+    cols = {c.lower(): c for c in df_marks.columns}
+    if 'subject' in cols:
+        df_marks = df_marks.rename(columns={cols['subject']: 'Subject'})
+    if 'marks' in cols:
+        df_marks = df_marks.rename(columns={cols['marks']: 'Marks'})
+        
     colors = ['#00f2fe', '#4facfe', '#43e97b', '#fa709a', '#f093fb', '#ffd700']
     fig = px.bar(df_marks, x='Subject', y='Marks', 
                  color='Subject',
@@ -190,11 +199,14 @@ def show_attendance():
         # Mock data for daily attendance
         dates = pd.date_range(start='2026-05-01', periods=24)
         status = np.random.choice(['Present', 'Absent'], size=24, p=[0.9, 0.1])
-        df_att = pd.DataFrame({'Date': dates, 'Status': status})
+        df_att = pd.DataFrame({'date': dates, 'status': status})
     
-    fig = px.scatter(df_att, x='Date', y='Status', color='Status', 
-                     color_discrete_map={'Present': '#43e97b', 'Absent': '#fa709a'},
-                     labels={'Date': 'Attendance Date', 'Status': 'Attendance Status'})
+    # Standardize column names to lowercase to avoid case mismatches
+    df_att.columns = [c.lower() for c in df_att.columns]
+    
+    fig = px.scatter(df_att, x='date', y='status', color='status', 
+                     color_discrete_map={'Present': '#43e97b', 'Absent': '#fa709a', 'present': '#43e97b', 'absent': '#fa709a'},
+                     labels={'date': 'Attendance Date', 'status': 'Attendance Status'})
     fig = apply_neon_theme(fig, "Daily Attendance Log")
     st.plotly_chart(fig, use_container_width=True)
 
