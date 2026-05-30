@@ -32,8 +32,12 @@ def show():
         show_class_analytics(df_sample)
 
 def show_performance_predictor():
-    st.markdown('<div class="glass-card fade-in">', unsafe_allow_html=True)
-    st.subheader("Predict My Performance")
+    st.markdown("""
+        <div class="glass-card fade-in" style="margin-bottom: 2rem; padding: 2rem;">
+            <h3 class="gradient-text" style="margin-top: 0; font-size: 1.8rem; font-weight: 800; letter-spacing: -1px;">🎯 Performance Predictor</h3>
+            <p style="color: #94a3b8; font-size: 1rem; margin-bottom: 0;">Adjust the parameters below to run AI-powered GPA projections and academic risk profiling.</p>
+        </div>
+    """, unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
     with col1:
@@ -66,11 +70,14 @@ def show_performance_predictor():
                 <p style="font-size: 1.2rem; color: #cbd5e1;">Probability of academic risk: <b>{risk_prob}%</b></p>
             </div>
         """, unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
 
 def show_weak_subject_detector():
-    st.markdown('<div class="glass-card fade-in">', unsafe_allow_html=True)
-    st.subheader("Subject-wise Analysis")
+    st.markdown("""
+        <div class="glass-card fade-in" style="margin-bottom: 2rem; padding: 2rem;">
+            <h3 class="gradient-text" style="margin-top: 0; font-size: 1.8rem; font-weight: 800; letter-spacing: -1px;">🔍 Weak Subject Detector</h3>
+            <p style="color: #94a3b8; font-size: 1rem; margin-bottom: 0;">Enter your grades across different subjects to let AI analyze and recommend personalized study plans.</p>
+        </div>
+    """, unsafe_allow_html=True)
     
     subjects = ["Mathematics", "Physics", "Computer Science", "English", "Data Science", "AI"]
     marks = {}
@@ -92,11 +99,14 @@ def show_weak_subject_detector():
                 st.progress(marks[sub]/100)
     else:
         st.success("✅ All subjects are currently above the 60% threshold. Keep it up!")
-    st.markdown('</div>', unsafe_allow_html=True)
 
 def show_study_plan_generator():
-    st.markdown('<div class="glass-card fade-in">', unsafe_allow_html=True)
-    st.subheader("Automated 7-Day Study Plan")
+    st.markdown("""
+        <div class="glass-card fade-in" style="margin-bottom: 2rem; padding: 2rem;">
+            <h3 class="gradient-text" style="margin-top: 0; font-size: 1.8rem; font-weight: 800; letter-spacing: -1px;">📅 Automated 7-Day Study Plan</h3>
+            <p style="color: #94a3b8; font-size: 1rem; margin-bottom: 0;">Your AI-generated personalized calendar schedule for balanced curriculum learning.</p>
+        </div>
+    """, unsafe_allow_html=True)
     
     days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     plan = {
@@ -111,7 +121,6 @@ def show_study_plan_generator():
     
     df_plan = pd.DataFrame(list(plan.items()), columns=["Day", "Focus Area"])
     st.table(df_plan)
-    st.markdown('</div>', unsafe_allow_html=True)
 
 def show_chat():
     from utils.ai import get_ai_response
@@ -237,8 +246,14 @@ def show_class_analytics(df):
         st.info("Class analytics data not available.")
         return
         
-    st.markdown('<div class="glass-card fade-in">', unsafe_allow_html=True)
-    st.subheader("Class-wide Analytics")
+    df.columns = [c.lower() for c in df.columns]
+    
+    st.markdown("""
+        <div class="glass-card fade-in" style="margin-bottom: 2rem; padding: 2rem;">
+            <h3 class="gradient-text" style="margin-top: 0; font-size: 1.8rem; font-weight: 800; letter-spacing: -1px;">📊 Class-wide Analytics</h3>
+            <p style="color: #94a3b8; font-size: 1rem; margin-bottom: 0;">Demographic trends, risk distributions, and cumulative metrics across the academic department.</p>
+        </div>
+    """, unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
     colors = ['#00f2fe', '#4facfe', '#43e97b', '#fa709a', '#f093fb', '#ffd700']
@@ -260,5 +275,3 @@ def show_class_analytics(df):
                      color_discrete_sequence=['#43e97b', '#fa709a'])
         fig = apply_neon_theme(fig, "Academic Risk Distribution")
         st.plotly_chart(fig, use_container_width=True)
-        
-    st.markdown('</div>', unsafe_allow_html=True)
