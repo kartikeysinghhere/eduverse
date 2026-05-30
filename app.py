@@ -490,29 +490,13 @@ def show_landing_page():
             try:
                 auth_url = get_google_auth_url()
                 st.markdown(f'''
-                    <div style="display: flex; justify-content: center; margin-top: 15px; margin-bottom: 10px;">
-                        <a href="{auth_url}" target="_self" style="
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            background-color: #1a73e8;
-                            color: white;
-                            padding: 10px 24px;
-                            border-radius: 8px;
-                            text-decoration: none;
-                            font-family: 'Inter', 'Roboto', sans-serif;
-                            font-weight: 600;
-                            font-size: 14px;
-                            width: 100%;
-                            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-                            transition: background-color 0.2s;
-                        " onmouseover="this.style.backgroundColor='#1557b0'" onmouseout="this.style.backgroundColor='#1a73e8'">
-                            <svg style="width:18px; height:18px; margin-right:10px;" viewBox="0 0 24 24">
-                                <path fill="currentColor" d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.114-5.136 4.114-3.41 0-6.19-2.77-6.19-6.19 0-3.41 2.78-6.19 6.19-6.19 1.483 0 2.825.524 3.882 1.396l3.252-3.252C18.23 1.84 15.42 1 12.24 1 6.033 1 1 6.033 1 12.24s5.033 11.24 11.24 11.24c6.48 0 11.24-4.514 11.24-11.24 0-.762-.068-1.4-.2-1.955H12.24z"/>
-                            </svg>
-                            Sign in with Google
-                        </a>
-                    </div>
+                    <a href="{auth_url}" target="_self">
+                        <button style="background:#1a73e8; color:white; border:none; 
+                        padding:12px 24px; border-radius:8px; cursor:pointer; 
+                        font-size:16px; width:100%;">
+                            🔵 Sign in with Google
+                        </button>
+                    </a>
                 ''', unsafe_allow_html=True)
             except Exception as e:
                 st.error("Google login currently unavailable.")
