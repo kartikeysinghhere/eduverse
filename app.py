@@ -61,41 +61,73 @@ if "analytics_data" not in st.session_state:
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = [{"role": "assistant", "content": "Hello! I am your EduVerse AI Assistant. Kaise help kar sakta hoon?"}]
 
-# Google OAuth Setup
-def get_google_authenticator():
+# Google OAuth Setup (Manual flow with google-auth-oauthlib and requests)
+def get_google_auth_url():
     client_id = os.environ.get("GOOGLE_CLIENT_ID")
     client_secret = os.environ.get("GOOGLE_CLIENT_SECRET")
     redirect_uri = os.environ.get("GOOGLE_REDIRECT_URI")
-    cookie_key = os.environ.get("GOOGLE_COOKIE_KEY")
     
-    if not client_id or not client_secret or not redirect_uri or not cookie_key:
-        st.error("[!] Config Error: Missing required Google OAuth environment variables! Please configure GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, and GOOGLE_COOKIE_KEY.")
+    if not client_id or not client_secret or not redirect_uri:
+        st.error("[!] Config Error: Missing required Google OAuth environment variables! Please configure GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REDIRECT_URI.")
         st.stop()
-
-    secrets_dict = {
+        
+    from google_auth_oauthlib.flow import Flow
+    
+    client_config = {
         "web": {
             "client_id": client_id,
-            "client_secret": client_secret,
+            "project_id": "eduverse-project",
             "auth_uri": "https://accounts.google.com/o/oauth2/auth",
             "token_uri": "https://oauth2.googleapis.com/token",
             "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+            "client_secret": client_secret,
             "redirect_uris": [redirect_uri]
         }
     }
     
-    secrets_path = ROOT / "client_secrets.json"
-    with open(secrets_path, "w") as f:
-        json.dump(secrets_dict, f, indent=4)
-        
-    from streamlit_google_auth import Authenticate
-    return Authenticate(
-        secret_credentials_path=str(secrets_path),
-        cookie_name="eduverse_google_auth",
-        cookie_key=cookie_key,
+    flow = Flow.from_client_config(
+        client_config,
+        scopes=["https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email"],
         redirect_uri=redirect_uri
     )
+    
+    authorization_url, state = flow.authorization_url(
+        access_type='offline',
+        include_granted_scopes='true',
+        prompt='select_account'
+    )
+    
+    st.session_state["oauth_state"] = state
+    return authorization_url
 
-authenticator = get_google_authenticator()
+def exchange_code_for_user_info(code):
+    client_id = os.environ.get("GOOGLE_CLIENT_ID")
+    client_secret = os.environ.get("GOOGLE_CLIENT_SECRET")
+    redirect_uri = os.environ.get("GOOGLE_REDIRECT_URI")
+    
+    token_url = "https://oauth2.googleapis.com/token"
+    data = {
+        "code": code,
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "redirect_uri": redirect_uri,
+        "grant_type": "authorization_code"
+    }
+    
+    try:
+        response = requests.post(token_url, data=data)
+        if response.status_code == 200:
+            token_data = response.json()
+            access_token = token_data.get("access_token")
+            
+            userinfo_url = "https://www.googleapis.com/oauth2/v2/userinfo"
+            headers = {"Authorization": f"Bearer {access_token}"}
+            userinfo_response = requests.get(userinfo_url, headers=headers)
+            if userinfo_response.status_code == 200:
+                return userinfo_response.json()
+    except Exception as e:
+        print(f"Error exchanging token: {e}")
+    return None
 
 # 1. At very top of app.py, before anything else, check if Google auth callback params exist in URL
 has_google_callback = False
@@ -110,64 +142,73 @@ except AttributeError:
         pass
 
 if has_google_callback and not st.session_state.logged_in:
+    code = ""
+    state = ""
     try:
-        authenticator.check_authentification()
-        # Google Authentication Success Flow
-        if st.session_state.get("connected"):
-            google_user_info = st.session_state.get("user_info")
-            if google_user_info:
-                result = sign_in_with_google(google_user_info)
-                if result:
-                    # Clear query params to prevent callback loop on rerun
+        code = st.query_params.get("code", "")
+        state = st.query_params.get("state", "")
+    except AttributeError:
+        try:
+            code = st.experimental_get_query_params().get("code", [""])[0]
+            state = st.experimental_get_query_params().get("state", [""])[0]
+        except Exception:
+            pass
+
+    if code:
+        google_user_info = exchange_code_for_user_info(code)
+        if google_user_info:
+            result = sign_in_with_google(google_user_info)
+            if result:
+                # Clear query params to prevent callback loop on rerun
+                try:
+                    st.query_params.clear()
+                except Exception:
                     try:
-                        st.query_params.clear()
-                    except Exception:
-                        try:
-                            st.experimental_set_query_params()
-                        except Exception:
-                            pass
-                    
-                    # Clear session to prevent session fixation
-                    for key in list(st.session_state.keys()):
-                        if key not in ["connected", "user_info", "oauth_id"]:
-                            del st.session_state[key]
-                            
-                    st.session_state.logged_in = True
-                    st.session_state.user = result
-                    st.session_state.role = result['role']
-                    st.session_state.login_time = time.time()
-                    st.session_state.auth_provider = "google"
-                    
-                    # Re-initialize other required state variables
-                    st.session_state.theme = "dark"
-                    st.session_state.analytics_data = {"visits": {}, "searches": []}
-                    st.session_state.chat_history = [{"role": "assistant", "content": "Hello! I am your EduVerse AI Assistant. Kaise help kar sakta hoon?"}]
-                    
-                    log_action(result['id'], "Google Login")
-                    st.rerun()
-                else:
-                    # Google email not mapped in table! Access Denied and clean up
-                    try:
-                        st.query_params.clear()
-                    except Exception:
-                        try:
-                            st.experimental_set_query_params()
-                        except Exception:
-                            pass
-                    st.session_state.connected = False
-                    if "user_info" in st.session_state:
-                        del st.session_state["user_info"]
-                    if "oauth_id" in st.session_state:
-                        del st.session_state["oauth_id"]
-                    try:
-                        authenticator.logout()
+                        st.experimental_set_query_params()
                     except Exception:
                         pass
-                    st.session_state.google_auth_error = "Access denied: Your Gmail account is not registered in EduVerse."
-                    st.session_state.show_login = True
-                    st.rerun()
-    except Exception as e:
-        print(f"Callback check exception: {e}")
+                
+                # Clear session to prevent session fixation
+                for key in list(st.session_state.keys()):
+                    if key not in ["oauth_state"]:
+                        del st.session_state[key]
+                        
+                st.session_state.logged_in = True
+                st.session_state.user = result
+                st.session_state.role = result['role']
+                st.session_state.login_time = time.time()
+                st.session_state.auth_provider = "google"
+                
+                # Re-initialize other required state variables
+                st.session_state.theme = "dark"
+                st.session_state.analytics_data = {"visits": {}, "searches": []}
+                st.session_state.chat_history = [{"role": "assistant", "content": "Hello! I am your EduVerse AI Assistant. Kaise help kar sakta hoon?"}]
+                
+                log_action(result['id'], "Google Login")
+                st.rerun()
+            else:
+                # Google email not mapped in table! Access Denied and clean up
+                try:
+                    st.query_params.clear()
+                except Exception:
+                    try:
+                        st.experimental_set_query_params()
+                    except Exception:
+                        pass
+                st.session_state.google_auth_error = "Access denied: Your Gmail account is not registered in EduVerse."
+                st.session_state.show_login = True
+                st.rerun()
+        else:
+            try:
+                st.query_params.clear()
+            except Exception:
+                try:
+                    st.experimental_set_query_params()
+                except Exception:
+                    pass
+            st.session_state.google_auth_error = "Authentication failed: Could not retrieve user profile from Google."
+            st.session_state.show_login = True
+            st.rerun()
 
 # 2. If st.session_state['logged_in'] is True: skip login page entirely, go straight to dashboard
 if st.session_state.get("logged_in"):
@@ -192,10 +233,6 @@ if not st.session_state.logged_in:
 # Session expiry check: if session older than 24 hours (86400 seconds), force logout automatically
 if st.session_state.get("logged_in") and "login_time" in st.session_state:
     if time.time() - st.session_state.login_time > 86400:
-        try:
-            authenticator.logout()
-        except Exception:
-            pass
         for key in list(st.session_state.keys()):
             del st.session_state[key]
         st.session_state.logged_in = False
@@ -284,11 +321,6 @@ def sidebar_nav():
     if st.sidebar.button("🚪 Logout", key="logout_btn", use_container_width=True):
         try:
             log_action(st.session_state.user['id'], "Logout")
-        except Exception:
-            pass
-        # Google authenticator logout to clear cookies
-        try:
-            authenticator.logout()
         except Exception:
             pass
         # Completely clear session state
@@ -467,7 +499,35 @@ def show_landing_page():
             st.markdown("<div style='text-align: center; margin: 15px 0; color: #64748b; font-weight: bold;'>— OR —</div>", unsafe_allow_html=True)
             
             # Google OAuth Login Button
-            authenticator.login(color="blue", justify_content="center")
+            try:
+                auth_url = get_google_auth_url()
+                st.markdown(f'''
+                    <div style="display: flex; justify-content: center; margin-top: 15px; margin-bottom: 10px;">
+                        <a href="{auth_url}" target="_self" style="
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            background-color: #1a73e8;
+                            color: white;
+                            padding: 10px 24px;
+                            border-radius: 8px;
+                            text-decoration: none;
+                            font-family: 'Inter', 'Roboto', sans-serif;
+                            font-weight: 600;
+                            font-size: 14px;
+                            width: 100%;
+                            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+                            transition: background-color 0.2s;
+                        " onmouseover="this.style.backgroundColor='#1557b0'" onmouseout="this.style.backgroundColor='#1a73e8'">
+                            <svg style="width:18px; height:18px; margin-right:10px;" viewBox="0 0 24 24">
+                                <path fill="currentColor" d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.114-5.136 4.114-3.41 0-6.19-2.77-6.19-6.19 0-3.41 2.78-6.19 6.19-6.19 1.483 0 2.825.524 3.882 1.396l3.252-3.252C18.23 1.84 15.42 1 12.24 1 6.033 1 1 6.033 1 12.24s5.033 11.24 11.24 11.24c6.48 0 11.24-4.514 11.24-11.24 0-.762-.068-1.4-.2-1.955H12.24z"/>
+                            </svg>
+                            Sign in with Google
+                        </a>
+                    </div>
+                ''', unsafe_allow_html=True)
+            except Exception as e:
+                st.error("Google login currently unavailable.")
             
             st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
             if st.button("← Return to Home", key="back_home", use_container_width=True):
