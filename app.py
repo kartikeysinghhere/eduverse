@@ -87,7 +87,7 @@ def get_google_auth_url():
     
     flow = Flow.from_client_config(
         client_config,
-        scopes=["https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email"],
+        scopes=["openid", "email", "profile"],
         redirect_uri=redirect_uri
     )
     
@@ -101,33 +101,36 @@ def get_google_auth_url():
     return authorization_url
 
 def exchange_code_for_user_info(code):
-    client_id = os.environ.get("GOOGLE_CLIENT_ID")
-    client_secret = os.environ.get("GOOGLE_CLIENT_SECRET")
-    redirect_uri = os.environ.get("GOOGLE_REDIRECT_URI")
+    # Exchange code for token
+    token_response = requests.post(
+        "https://oauth2.googleapis.com/token",
+        data={
+            "code": code,
+            "client_id": os.environ.get("GOOGLE_CLIENT_ID"),
+            "client_secret": os.environ.get("GOOGLE_CLIENT_SECRET"),
+            "redirect_uri": os.environ.get("GOOGLE_REDIRECT_URI"),
+            "grant_type": "authorization_code",
+        }
+    )
+    token_data = token_response.json()
+    access_token = token_data.get("access_token")
     
-    token_url = "https://oauth2.googleapis.com/token"
-    data = {
-        "code": code,
-        "client_id": client_id,
-        "client_secret": client_secret,
-        "redirect_uri": redirect_uri,
-        "grant_type": "authorization_code"
-    }
+    if not access_token:
+        st.error(f"Token error: {token_data}")
+        st.stop()
     
-    try:
-        response = requests.post(token_url, data=data)
-        if response.status_code == 200:
-            token_data = response.json()
-            access_token = token_data.get("access_token")
-            
-            userinfo_url = "https://www.googleapis.com/oauth2/v2/userinfo"
-            headers = {"Authorization": f"Bearer {access_token}"}
-            userinfo_response = requests.get(userinfo_url, headers=headers)
-            if userinfo_response.status_code == 200:
-                return userinfo_response.json()
-    except Exception as e:
-        print(f"Error exchanging token: {e}")
-    return None
+    # Get user info
+    userinfo_response = requests.get(
+        "https://www.googleapis.com/oauth2/v2/userinfo",
+        headers={"Authorization": f"Bearer {access_token}"}
+    )
+    user_info = userinfo_response.json()
+    
+    if not user_info.get("email"):
+        st.error(f"Profile error: {user_info}")
+        st.stop()
+        
+    return user_info
 
 # 1. At very top of app.py, before anything else, check if Google auth callback params exist in URL
 has_google_callback = False
