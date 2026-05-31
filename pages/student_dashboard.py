@@ -64,13 +64,15 @@ def show_main_dashboard():
     
     with col_side:
         # Exam Countdown
-        st.markdown('<div class="glass-card fade-in">', unsafe_allow_html=True)
-        st.subheader("⏱️ Exam Countdown")
+        st.markdown("""
+            <div class="glass-card fade-in" style="padding: 1.5rem; margin-bottom: 1.5rem;">
+                <h4 style="margin-top: 0; margin-bottom: 10px;">⏱️ Exam Countdown</h4>
+            </div>
+        """, unsafe_allow_html=True)
         exam_date = st.date_input("Next Exam Date", value=pd.to_datetime('2026-06-15'))
         days_left = (exam_date - pd.to_datetime('today').date()).days
         st.write(f"### {days_left} Days Left")
         st.progress(max(0, min(100, (30-days_left)*100//30)))
-        st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown("<br>", unsafe_allow_html=True)
         # Achievement Badges
@@ -90,8 +92,11 @@ def show_main_dashboard():
         
         st.markdown("<br>", unsafe_allow_html=True)
         # Leaderboard (Top 5 from real data)
-        st.markdown('<div class="glass-card fade-in">', unsafe_allow_html=True)
-        st.subheader("🏆 Leaderboard (Top 5)")
+        st.markdown("""
+            <div class="glass-card fade-in" style="padding: 2rem; margin-bottom: 2rem;">
+                <h3 class="gradient-text" style="margin-top: 0; font-size: 1.8rem; font-weight: 800; letter-spacing: -1px;">🏆 Leaderboard (Top 5)</h3>
+            </div>
+        """, unsafe_allow_html=True)
         try:
             top_5_data = df_all.head(5)[['name', 'final_gpa']]
             top_5_data.columns = ['Name', 'GPA']
@@ -106,9 +111,9 @@ def show_main_dashboard():
         if st.button("Generate Performance Report (PDF)", use_container_width=True):
             pdf = FPDF()
             pdf.add_page()
-            pdf.set_font("Arial", 'B', 16)
+            pdf.set_font("helvetica", 'B', 16)
             pdf.cell(200, 10, txt="EduVerse Student Performance Audit", ln=True, align='C')
-            pdf.set_font("Arial", size=12)
+            pdf.set_font("helvetica", size=12)
             pdf.cell(200, 10, txt=f"Student ID: {student['student_id']}", ln=True)
             pdf.cell(200, 10, txt=f"Name: {student['name']}", ln=True)
             pdf.cell(200, 10, txt=f"Current GPA: {student['final_gpa']:.2f}", ln=True)
@@ -118,13 +123,13 @@ def show_main_dashboard():
             pdf.cell(200, 10, txt=f"Status: {'Good Standing' if student['risk'] == 0 else 'At Academic Risk'}", ln=True)
             pdf.cell(200, 10, txt=f"Report Generated At: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", ln=True)
             
-            pdf_output = pdf.output(dest='S').encode('latin-1')
+            # bytes(pdf.output()) is clean and correct for fpdf2 to yield binary bytes directly
+            pdf_output = bytes(pdf.output())
             st.download_button(label="Click to Download PDF", 
                                data=pdf_output, 
                                file_name=f"{student['name'].replace(' ', '_')}_report.pdf", 
                                mime="application/pdf",
                                use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
 
 def show_chatbot():
     from utils.ai import get_ai_response
@@ -246,14 +251,17 @@ def show_ai_insights():
 
     with col2:
         if "pred_gpa" in st.session_state:
-            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            st.write(f"### Predicted Final GPA: <span style='color: #00f2fe;'>{st.session_state.pred_gpa}</span>", unsafe_allow_html=True)
-            st.write(f"### Risk Level: <span style='color: {'#ff4b4b' if st.session_state.pred_risk > 50 else '#00f2fe'};'>{st.session_state.pred_risk}%</span>", unsafe_allow_html=True)
+            st.markdown(f"""
+                <div class="glass-card fade-in" style="padding: 2rem; text-align: center; border: 1px solid var(--primary); margin-bottom: 1.5rem;">
+                    <h3 style="margin-top: 0; color: #00f2fe;">Predicted Final GPA</h3>
+                    <div style="font-size: 3rem; font-weight: 800; color: #ffffff; margin: 10px 0;">{st.session_state.pred_gpa}</div>
+                    <div style="font-size: 1.2rem; color: #cbd5e1; margin-bottom: 5px;">Risk Level: <b>{st.session_state.pred_risk}%</b></div>
+                </div>
+            """, unsafe_allow_html=True)
             
             if st.session_state.pred_risk > 30:
                 st.warning("⚠️ High Risk detected. AI recommends increasing study hours and attending more sessions.")
             else:
                 st.success("✅ On track for excellence. Keep up the consistent effort!")
-            st.markdown('</div>', unsafe_allow_html=True)
         else:
             st.info("Adjust the sliders and click 'Predict' to see AI insights.")
