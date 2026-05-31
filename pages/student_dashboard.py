@@ -114,20 +114,20 @@ def show_main_dashboard():
             pdf.set_font("helvetica", 'B', 16)
             pdf.cell(200, 10, text="EduVerse Student Performance Audit", new_x="LMARGIN", new_y="NEXT", align='C')
             pdf.set_font("helvetica", size=12)
-            pdf.cell(200, 10, text=f"Student ID: {student['student_id']}", new_x="LMARGIN", new_y="NEXT")
-            pdf.cell(200, 10, text=f"Name: {student['name']}", new_x="LMARGIN", new_y="NEXT")
-            pdf.cell(200, 10, text=f"Current GPA: {student['final_gpa']:.2f}", new_x="LMARGIN", new_y="NEXT")
-            pdf.cell(200, 10, text=f"Attendance: {int(student['attendance_pct'])}%", new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(200, 10, text=f"Student ID: {student.get('student_id', student_id)}", new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(200, 10, text=f"Name: {student.get('name', 'Student')}", new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(200, 10, text=f"Current GPA: {student.get('final_gpa', 0.0):.2f}", new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(200, 10, text=f"Attendance: {int(student.get('attendance_pct', 0.0))}%", new_x="LMARGIN", new_y="NEXT")
             pdf.cell(200, 10, text=f"Rank: {rank_str}", new_x="LMARGIN", new_y="NEXT")
-            pdf.cell(200, 10, text=f"Assignments Completed: {student['assignments_completed']}/20", new_x="LMARGIN", new_y="NEXT")
-            pdf.cell(200, 10, text=f"Status: {'Good Standing' if student['risk'] == 0 else 'At Academic Risk'}", new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(200, 10, text=f"Assignments Completed: {student.get('assignments_completed', 0)}/20", new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(200, 10, text=f"Status: {'Good Standing' if student.get('risk', 0) == 0 else 'At Academic Risk'}", new_x="LMARGIN", new_y="NEXT")
             pdf.cell(200, 10, text=f"Report Generated At: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", new_x="LMARGIN", new_y="NEXT")
             
             # bytes(pdf.output()) is clean and correct for fpdf2 to yield binary bytes directly
             pdf_output = bytes(pdf.output())
             st.download_button(label="Click to Download PDF", 
                                data=pdf_output, 
-                               file_name=f"{student['name'].replace(' ', '_')}_report.pdf", 
+                               file_name=f"{student.get('name', 'Student').replace(' ', '_')}_report.pdf", 
                                mime="application/pdf",
                                use_container_width=True)
 
