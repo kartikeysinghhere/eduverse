@@ -167,13 +167,76 @@ def show_chatbot():
 def show_grades():
     section_header("Subject-wise Performance", "Detailed breakdown of your grades")
     
-    try:
-        data = fetch_table("grades", filters={"student_id": st.session_state.user['id']})
-        if not data:
-            raise Exception("empty")
-        df_marks = pd.DataFrame(data)
-    except:
-        df_marks = generate_subject_marks()
+    student_id = st.session_state.user['id']
+    
+    # ISSUE 1 - Cache marks in session state per student to prevent regeneration on rerun
+    if "student_marks" not in st.session_state or st.session_state.get("student_marks_user_id") != student_id:
+        data = []
+        try:
+            data = fetch_table("grades", filters={"student_id": student_id})
+        except Exception:
+            try:
+                data = fetch_table("marks", filters={"student_id": student_id})
+            except Exception:
+                pass
+                
+        if data:
+            df_marks = pd.DataFrame(data)
+        else:
+            # Generate random marks once and save to DB
+            df_marks = generate_subject_marks()
+            df_marks['student_id'] = student_id
+            
+            # Save to Database (Supabase or local SQLite fallback depending on DB_MODE)
+            from utils.db import DB_MODE
+            if DB_MODE == "supabase":
+                try:
+                    from utils.db import get_supabase_client
+                    supabase = get_supabase_client()
+                    
+                    records = []
+                    for _, row in df_marks.iterrows():
+                        records.append({
+                            "student_id": int(student_id),
+                            "subject": str(row['Subject']),
+                            "marks": int(row['Marks'])
+                        })
+                    try:
+                        supabase.table("grades").insert(records).execute()
+                    except Exception:
+                        supabase.table("marks").insert(records).execute()
+                except Exception as insert_err:
+                    print(f"Error saving generated marks to Supabase: {insert_err}")
+            else:
+                import sqlite3
+                from pathlib import Path
+                ROOT = Path(__file__).resolve().parent.parent
+                try:
+                    conn = sqlite3.connect(str(ROOT / "eduverse.db"))
+                    cur = conn.cursor()
+                    for _, row in df_marks.iterrows():
+                        try:
+                            cur.execute(
+                                "INSERT INTO grades (student_id, Subject, Marks) VALUES (?, ?, ?)",
+                                (int(student_id), str(row['Subject']), int(row['Marks']))
+                            )
+                        except Exception:
+                            try:
+                                cur.execute(
+                                    "INSERT INTO marks (student_id, subject, marks) VALUES (?, ?, ?)",
+                                    (int(student_id), str(row['Subject']), int(row['Marks']))
+                                )
+                            except Exception:
+                                pass
+                    conn.commit()
+                    conn.close()
+                except Exception as sqlite_err:
+                    print(f"Error saving generated marks to SQLite: {sqlite_err}")
+                    
+        st.session_state.student_marks = df_marks
+        st.session_state.student_marks_user_id = student_id
+    else:
+        df_marks = st.session_state.student_marks
     
     # Standardize column names dynamically to match what Plotly expect (Subject, Marks)
     cols = {c.lower(): c for c in df_marks.columns}
@@ -190,30 +253,80 @@ def show_grades():
     fig = apply_neon_theme(fig, "Marks Distribution")
     st.plotly_chart(fig, use_container_width=True)
     
-    st.table(df_marks)
+    # Render table beautifully without index
+    st.dataframe(df_marks[['Subject', 'Marks']], use_container_width=True, hide_index=True)
 
 def show_attendance():
     section_header("Attendance Analysis", "Track your presence across all courses")
     
+    student_id = st.session_state.user['id']
+    data = []
     try:
-        data = fetch_table("attendance", filters={"student_id": st.session_state.user['id']})
-        if not data:
-            raise Exception("empty")
-        df_att = pd.DataFrame(data)
-    except:
-        # Mock data for daily attendance
-        dates = pd.date_range(start='2026-05-01', periods=24)
-        status = np.random.choice(['Present', 'Absent'], size=24, p=[0.9, 0.1])
+        data = fetch_table("attendance", filters={"student_id": student_id})
+    except Exception:
+        pass
+        
+    if not data:
+        # Mock data for daily attendance for past 30 days
+        dates = pd.date_range(end=pd.Timestamp.now(), periods=30)
+        status = np.random.choice(['Present', 'Absent'], size=30, p=[0.92, 0.08])
         df_att = pd.DataFrame({'date': dates, 'status': status})
-    
+    else:
+        df_att = pd.DataFrame(data)
+        
     # Standardize column names to lowercase to avoid case mismatches
     df_att.columns = [c.lower() for c in df_att.columns]
+    df_att['date'] = pd.to_datetime(df_att['date'])
     
-    fig = px.scatter(df_att, x='date', y='status', color='status', 
-                     color_discrete_map={'Present': '#43e97b', 'Absent': '#fa709a', 'present': '#43e97b', 'absent': '#fa709a'},
-                     labels={'date': 'Attendance Date', 'status': 'Attendance Status'})
-    fig = apply_neon_theme(fig, "Daily Attendance Log")
+    # Clean status string values
+    df_att['status'] = df_att['status'].astype(str).str.strip().str.capitalize()
+    
+    # Calculate stats
+    total_present = len(df_att[df_att['status'] == 'Present'])
+    total_absent = len(df_att[df_att['status'] == 'Absent'])
+    total_days = len(df_att)
+    attendance_pct = (total_present / total_days * 100) if total_days > 0 else 0.0
+    
+    # Renders a row of premium metric cards
+    metrics = [
+        {"label": "Total Present", "value": f"{total_present} Days", "icon": "✅"},
+        {"label": "Total Absent", "value": f"{total_absent} Days", "icon": "❌"},
+        {"label": "Attendance Rate", "value": f"{attendance_pct:.1f}%", "icon": "📊"}
+    ]
+    metric_row(metrics)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Clean bar chart showing weekly attendance rate
+    df_att['Week'] = df_att['date'].dt.to_period('W').apply(lambda r: r.start_time.strftime('%b %d'))
+    weekly_stats = df_att.groupby('Week').apply(
+        lambda x: (x['status'] == 'Present').sum() / len(x) * 100
+    ).reset_index()
+    weekly_stats.columns = ['Week Starting', 'Attendance Rate %']
+    
+    fig = px.bar(weekly_stats, x='Week Starting', y='Attendance Rate %',
+                 color='Attendance Rate %',
+                 color_continuous_scale=['#fa709a', '#00f2fe', '#43e97b'],
+                 range_y=[0, 100])
+    fig = apply_neon_theme(fig, "Weekly Attendance Rate % Trend")
     st.plotly_chart(fig, use_container_width=True)
+    
+    # Calendar Heatmap / Grid Visual Log
+    st.markdown("### 📅 Daily Attendance Badges")
+    timeline_html = "<div style='display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;'>"
+    for _, row in df_att.sort_values('date').iterrows():
+        d_str = row['date'].strftime('%b %d')
+        stat = row['status']
+        bg_color = "rgba(67, 233, 123, 0.15)" if stat == 'Present' else "rgba(250, 112, 154, 0.15)"
+        border_color = "#43e97b" if stat == 'Present' else "#fa709a"
+        timeline_html += f"""
+            <div style='background: {bg_color}; border: 1px solid {border_color}; padding: 6px 12px; border-radius: 12px; text-align: center; font-size: 0.85rem; min-width: 70px;'>
+                <div style='font-weight: 700; color: #ffffff;'>{d_str}</div>
+                <div style='font-size: 0.75rem; color: {border_color}; font-weight: 800; margin-top: 2px;'>{stat}</div>
+            </div>
+        """
+    timeline_html += "</div>"
+    st.markdown(timeline_html, unsafe_allow_html=True)
 
 def show_ai_insights():
     section_header("AI Performance Predictions", "Predictive modeling for your future grades")
