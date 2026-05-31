@@ -319,12 +319,7 @@ def show_attendance():
         stat = row['status']
         bg_color = "rgba(67, 233, 123, 0.15)" if stat == 'Present' else "rgba(250, 112, 154, 0.15)"
         border_color = "#43e97b" if stat == 'Present' else "#fa709a"
-        timeline_html += f"""
-            <div style='background: {bg_color}; border: 1px solid {border_color}; padding: 6px 12px; border-radius: 12px; text-align: center; font-size: 0.85rem; min-width: 70px;'>
-                <div style='font-weight: 700; color: #ffffff;'>{d_str}</div>
-                <div style='font-size: 0.75rem; color: {border_color}; font-weight: 800; margin-top: 2px;'>{stat}</div>
-            </div>
-        """
+        timeline_html += f"<div style='background: {bg_color}; border: 1px solid {border_color}; padding: 6px 12px; border-radius: 12px; text-align: center; font-size: 0.85rem; min-width: 70px;'><div style='font-weight: 700; color: #ffffff;'>{d_str}</div><div style='font-size: 0.75rem; color: {border_color}; font-weight: 800; margin-top: 2px;'>{stat}</div></div>"
     timeline_html += "</div>"
     st.markdown(timeline_html, unsafe_allow_html=True)
 

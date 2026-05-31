@@ -389,7 +389,7 @@ def show_landing_page():
                 </p>
                 <div style="display: flex; justify-content: center; gap: 1.5rem; margin-bottom: 1.8rem; margin-top: 2.5rem;">
                     <div class="glass-card floating-card" style="padding: 1.5rem 2.5rem;">
-                        <span style="font-size: 2.8rem; font-weight: 900; color: #00f2fe; display: block;">1,200+</span>
+                        <span style="font-size: 2.8rem; font-weight: 900; color: #00f2fe; display: block;">50+</span>
                         <span style="color: #64748b; font-weight: 700; letter-spacing: 1px; font-size: 0.85rem;">STUDENTS</span>
                     </div>
                     <div class="glass-card floating-card" style="padding: 1.5rem 2.5rem; animation-delay: 1s;">
