@@ -21,20 +21,36 @@ def main():
         print("[-] Error: SUPABASE_URL or SUPABASE_KEY is missing in the environment.")
         return
 
+    # Read passwords from environment variables — never hardcode credentials
+    admin_password = os.environ.get("EDUVERSE_ADMIN_PASSWORD")
+    teacher_password = os.environ.get("EDUVERSE_TEACHER_PASSWORD")
+
+    if not admin_password or not teacher_password:
+        print("[!] Error: Required password environment variables are missing!")
+        print("    Please set the following environment variables:")
+        print("      - EDUVERSE_ADMIN_PASSWORD")
+        print("      - EDUVERSE_TEACHER_PASSWORD")
+        print("\n    Option A: Add them to your local '.env' file.")
+        print("    Option B: Set them in your shell before running this script:")
+        print("      $env:EDUVERSE_ADMIN_PASSWORD='YourSecureAdminPassword'")
+        print("      $env:EDUVERSE_TEACHER_PASSWORD='YourSecureTeacherPassword'")
+        print("      python setup_users.py")
+        raise SystemExit(1)
+
     print("[*] Connecting to Supabase...")
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
     users_to_create = [
         {
             "username": "admin",
-            "password": "EduAdmin@2026",
+            "password": admin_password,
             "role": "Admin",
             "email": "admin@eduverse.ai",
             "id": 999
         },
         {
             "username": "teacher",
-            "password": "EduTeacher@2026",
+            "password": teacher_password,
             "role": "Teacher",
             "email": "teacher@eduverse.ai",
             "id": 998

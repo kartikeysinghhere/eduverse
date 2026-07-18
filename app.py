@@ -1,6 +1,5 @@
 import streamlit as st
 import os
-import json
 import requests
 import time
 from collections import defaultdict
@@ -37,12 +36,11 @@ def reset_attempts(username: str):
 
 
 ROOT = Path(__file__).resolve().parent
-load_dotenv(dotenv_path=ROOT / ".env")
+load_dotenv(dotenv_path=ROOT / ".env", override=True)
 
 # Page configuration (MUST be first Streamlit UI command called)
 st.set_page_config(
-    page_title="EduVerse | AI-Powered Analytics",
-    page_icon="🚀",
+    page_title="EduVerse - Secure Access",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -62,8 +60,6 @@ if "chat_history" not in st.session_state:
     st.session_state.chat_history = [{"role": "assistant", "content": "Hello! I am your EduVerse AI Assistant. Kaise help kar sakta hoon?"}]
 
 import secrets
-import hashlib
-import base64
 
 def get_google_auth_url():
     # Generate state for CSRF protection
@@ -95,27 +91,40 @@ def exchange_code_for_user_info(code):
             "client_secret": os.environ.get("GOOGLE_CLIENT_SECRET"),
             "redirect_uri": os.environ.get("GOOGLE_REDIRECT_URI"),
             "grant_type": "authorization_code",
-        }
+        },
+        timeout=10
     )
     token_data = token_response.json()
     access_token = token_data.get("access_token")
     
     if not access_token:
-        st.error(f"Token error: {token_data}")
+        print(f"[OAuth] Token exchange failed. Response: {token_data}")
+        st.error("Authentication failed. Please try again.")
         st.stop()
     
     # Get user info
     userinfo_response = requests.get(
         "https://www.googleapis.com/oauth2/v2/userinfo",
-        headers={"Authorization": f"Bearer {access_token}"}
+        headers={"Authorization": f"Bearer {access_token}"},
+        timeout=10
     )
     user_info = userinfo_response.json()
     
     if not user_info.get("email"):
-        st.error(f"Profile error: {user_info}")
+        print(f"[OAuth] Failed to retrieve user profile. Response: {user_info}")
+        st.error("Authentication failed. Please try again.")
         st.stop()
         
     return user_info
+
+def clear_oauth_query_params():
+    try:
+        st.query_params.clear()
+    except Exception:
+        try:
+            st.experimental_set_query_params()
+        except Exception:
+            pass
 
 # 1. At very top of app.py, before anything else, check if Google auth callback params exist in URL
 has_google_callback = False
@@ -142,19 +151,21 @@ if has_google_callback and not st.session_state.logged_in:
         except Exception:
             pass
 
+    # Validate OAuth state parameter to prevent CSRF attacks
+    expected_state = st.session_state.get("oauth_state")
+    if not state or state != expected_state:
+        clear_oauth_query_params()
+        st.error("Invalid authentication state. Please try logging in again.")
+        st.session_state.show_login = True
+        st.stop()
+
     if code:
         google_user_info = exchange_code_for_user_info(code)
         if google_user_info:
             result = sign_in_with_google(google_user_info)
             if result:
                 # Clear query params to prevent callback loop on rerun
-                try:
-                    st.query_params.clear()
-                except Exception:
-                    try:
-                        st.experimental_set_query_params()
-                    except Exception:
-                        pass
+                clear_oauth_query_params()
                 
                 # Clear session to prevent session fixation
                 for key in list(st.session_state.keys()):
@@ -176,24 +187,12 @@ if has_google_callback and not st.session_state.logged_in:
                 st.rerun()
             else:
                 # Google email not mapped in table! Access Denied and clean up
-                try:
-                    st.query_params.clear()
-                except Exception:
-                    try:
-                        st.experimental_set_query_params()
-                    except Exception:
-                        pass
+                clear_oauth_query_params()
                 st.session_state.google_auth_error = "Access denied: Your Gmail account is not registered in EduVerse."
                 st.session_state.show_login = True
                 st.rerun()
         else:
-            try:
-                st.query_params.clear()
-            except Exception:
-                try:
-                    st.experimental_set_query_params()
-                except Exception:
-                    pass
+            clear_oauth_query_params()
             st.session_state.google_auth_error = "Authentication failed: Could not retrieve user profile from Google."
             st.session_state.show_login = True
             st.rerun()
@@ -276,6 +275,9 @@ def sidebar_nav():
         </div>
     """, unsafe_allow_html=True)
 
+
+
+
     # Search Bar for Analytics Tracking
     st.sidebar.markdown('<p style="color: #475569; font-size: 0.75rem; font-weight: 800; margin-left: 20px; margin-bottom: 5px; letter-spacing: 2px;">SEARCH</p>', unsafe_allow_html=True)
     search_query = st.sidebar.text_input("", placeholder="Find insights...", key="global_search_input", label_visibility="collapsed")
@@ -284,13 +286,13 @@ def sidebar_nav():
             st.session_state.analytics_data["searches"].append(search_query)
             st.session_state.last_search = search_query
 
-    pages = {
-        "Student": ["Dashboard", "My Grades", "Attendance", "AI Insights", "How It Works", "🤖 AI Chat"],
-        "Teacher": ["Dashboard", "Student Management", "Upload Marks", "Analytics", "How It Works", "🤖 AI Chat"],
-        "Admin": ["Dashboard", "User Management", "System Health", "Reports", "Audit Logs", "Smart Analytics", "How It Works", "🤖 AI Chat"]
+    MENU = {
+        "Student": ["Dashboard", "My Grades", "Attendance", "AI Insights", "How It Works", "AI Chat"],
+        "Teacher": ["Dashboard", "Student Management", "Upload Marks", "Analytics", "How It Works", "AI Chat"],
+        "Admin": ["Dashboard", "User Management", "System Health", "Reports", "Audit Logs", "Smart Analytics", "How It Works", "AI Chat"]
     }
     
-    available_pages = pages.get(st.session_state.role, [])
+    available_pages = MENU.get(st.session_state.role, [])
     
     if "selection" not in st.session_state:
         st.session_state.selection = available_pages[0]
@@ -298,15 +300,15 @@ def sidebar_nav():
     st.sidebar.markdown('<p style="color: #475569; font-size: 0.75rem; font-weight: 800; margin-left: 20px; margin-top: 20px; margin-bottom: 15px; letter-spacing: 2px;">PLATFORM NAV</p>', unsafe_allow_html=True)
     
     for page in available_pages:
-        label = f"✨ {page}" if st.session_state.selection == page else page
+        label = f"• {page}" if st.session_state.selection == page else page
         if st.sidebar.button(label, key=f"nav_{page}", use_container_width=True):
             st.session_state.selection = page
             # Track Page Visit
             st.session_state.analytics_data["visits"][page] = st.session_state.analytics_data["visits"].get(page, 0) + 1
             st.rerun()
 
-    st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
-    if st.sidebar.button("🚪 Logout", key="logout_btn", use_container_width=True):
+    st.sidebar.markdown('<hr style="border-color: rgba(255, 255, 255, 0.1);"/>', unsafe_allow_html=True)
+    if st.sidebar.button("Logout", key="logout_btn", use_container_width=True):
         try:
             log_action(st.session_state.user['id'], "Logout")
         except Exception:
@@ -314,6 +316,9 @@ def sidebar_nav():
         # Completely clear session state
         for key in list(st.session_state.keys()):
             del st.session_state[key]
+        
+        st.session_state.logged_in = False
+        st.session_state.show_login = True
         st.rerun()
 
         
@@ -332,7 +337,7 @@ def main():
             require_role(['Admin', 'Teacher', 'Student'])
             import pages.how_it_works as how_it_works
             how_it_works.show()
-        elif selection == "🤖 AI Chat":
+        elif selection == "AI Chat":
             require_role(['Admin', 'Teacher', 'Student'])
             from pages import ai_insights
             ai_insights.show_chat()
@@ -418,7 +423,7 @@ def show_landing_page():
         
         col1, col2, col3 = st.columns([1.5, 1, 1.5])
         with col2:
-            if st.button("Launch Platform →", use_container_width=True):
+            if st.button("Launch Platform ->", use_container_width=True):
                 st.session_state.show_login = True
                 st.rerun()
     else:
@@ -440,8 +445,8 @@ def show_landing_page():
                 </style>
             """, unsafe_allow_html=True)
             
-            # Using div with style instead of h1/h2 to avoid anchor links (⛓)
-            st.markdown('<div class="gradient-text" style="text-align: center; font-size: 2rem; font-weight: 900; letter-spacing: -1.5px; margin-bottom: 2px;">Welcome Back</div>', unsafe_allow_html=True)
+            # Using div with style instead of h1/h2 to avoid anchor links
+            st.markdown("<div style='font-size: 2rem; font-weight: 800; color: #1e293b; margin-bottom: 5px; text-align: center; font-family: Inter, sans-serif;'>EduVerse Access</div>", unsafe_allow_html=True)
             st.markdown('<div style="text-align: center; color: #94a3b8; font-size: 0.9rem; margin-bottom: 0.8rem;">Secure entry to your EduVerse account</div>', unsafe_allow_html=True)
             
             if st.session_state.get("google_auth_error"):

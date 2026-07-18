@@ -24,6 +24,10 @@ def main():
             admin_raw = admin_raw or secrets.token_urlsafe(16)
             teacher_raw = teacher_raw or secrets.token_urlsafe(16)
             student_raw = student_raw or secrets.token_urlsafe(16)
+            
+            print(f"[!] Generated admin password: {admin_raw} — SAVE THIS, it will not be shown again")
+            print(f"[!] Generated teacher password: {teacher_raw} — SAVE THIS, it will not be shown again")
+            print(f"[!] Generated student password: {student_raw} — SAVE THIS, it will not be shown again")
         else:
             print("[!] Error: Required password environment variables are missing!")
             print("    Please set the following environment variables:")
@@ -56,6 +60,15 @@ def main():
     
     # 1. Drop existing tables if they exist
     tables = ["users", "students", "grades", "attendance", "departments", "analytics_logs"]
+    
+    import sys
+    if "--force" not in sys.argv:
+        print(f"\nWARNING: This will DROP the following tables: {', '.join(tables)}")
+        confirm = input("Type 'yes' to proceed: ")
+        if confirm.strip().lower() != "yes":
+            print("Aborting database seed.")
+            return
+
     for t in tables:
         cur.execute(f"DROP TABLE IF EXISTS {t}")
         
@@ -79,6 +92,7 @@ def main():
         attendance_pct REAL NOT NULL,
         internal_marks REAL NOT NULL,
         assignments_completed INTEGER NOT NULL,
+        study_hours REAL NOT NULL,
         prev_gpa REAL NOT NULL,
         final_gpa REAL NOT NULL,
         risk INTEGER NOT NULL
@@ -156,10 +170,10 @@ def main():
     # 4. Seed Students
     for _, row in df.iterrows():
         cur.execute("""
-        INSERT INTO students (student_id, name, department, semester, attendance_pct, internal_marks, assignments_completed, prev_gpa, final_gpa, risk)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO students (student_id, name, department, semester, attendance_pct, internal_marks, assignments_completed, study_hours, prev_gpa, final_gpa, risk)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (int(row['student_id']), row['name'], row['department'], int(row['semester']), 
-              float(row['attendance_pct']), float(row['internal_marks']), int(row['assignments_completed']),
+              float(row['attendance_pct']), float(row['internal_marks']), int(row['assignments_completed']), float(row['study_hours']),
               float(row['prev_gpa']), float(row['final_gpa']), int(row['risk'])))
               
     print("Students seeded successfully.")

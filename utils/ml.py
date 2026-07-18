@@ -14,23 +14,20 @@ def generate_student_data(n=50):
     csv_path = str(ROOT / "data" / "sample_data.csv")
     if os.path.exists(csv_path):
         df = pd.read_csv(csv_path)
-        # Standardize column names for ML logic
-        if 'attendance_pct' in df.columns:
-            df = df.rename(columns={'attendance_pct': 'attendance'})
         return df
     
     # Fallback to synthetic if CSV missing
     np.random.seed(42)
     data = {
         'student_id': range(1, n + 1),
-        'attendance': np.random.randint(60, 100, n),
+        'attendance_pct': np.random.randint(60, 100, n),
         'internal_marks': np.random.randint(40, 100, n),
         'study_hours': np.random.randint(1, 10, n),
         'prev_gpa': np.random.uniform(2.0, 4.0, n).round(2),
         'assignments_completed': np.random.randint(5, 15, n)
     }
     df = pd.DataFrame(data)
-    df['final_gpa'] = (df['attendance'] * 0.2 + df['internal_marks'] * 0.4 + df['study_hours'] * 2 + df['prev_gpa'] * 10) / 25
+    df['final_gpa'] = (df['attendance_pct'] * 0.2 + df['internal_marks'] * 0.4 + df['study_hours'] * 2 + df['prev_gpa'] * 10) / 25
     df['final_gpa'] = df['final_gpa'].clip(0, 4.0).round(2)
     df['risk'] = (df['final_gpa'] < 2.0).astype(int)
     return df
@@ -41,7 +38,7 @@ def train_predictive_models():
     df = generate_student_data()
     
     # Ensure all required features exist for training
-    features_list = ['attendance', 'internal_marks', 'study_hours', 'prev_gpa', 'assignments_completed']
+    features_list = ['attendance_pct', 'internal_marks', 'study_hours', 'prev_gpa', 'assignments_completed']
     X = df[features_list]
     y_gpa = df['final_gpa']
     y_risk = df['risk']
@@ -57,13 +54,15 @@ def train_predictive_models():
     return gpa_model, risk_model
 
 
-def get_student_predictions(attendance, internal, study, prev_gpa, assignments):
-    """Predicts GPA and Risk for a single student."""
+def get_student_predictions(attendance_pct, internal, study, prev_gpa, assignments):
+    """Returns (predicted_gpa, risk_label) for a student."""
     gpa_model, risk_model = train_predictive_models()
-    features = np.array([[attendance, internal, study, prev_gpa, assignments]])
     
-    predicted_gpa = gpa_model.predict(features)[0]
-    predicted_risk = risk_model.predict_proba(features)[0][1] # Probability of risk
+    input_data = pd.DataFrame([[attendance_pct, internal, study, prev_gpa, assignments]], 
+                              columns=['attendance_pct', 'internal_marks', 'study_hours', 'prev_gpa', 'assignments_completed'])
+    
+    predicted_gpa = gpa_model.predict(input_data)[0]
+    predicted_risk = risk_model.predict_proba(input_data)[0][1] # Probability of risk
     
     return round(predicted_gpa, 2), round(predicted_risk * 100, 2)
 

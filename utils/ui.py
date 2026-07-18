@@ -18,7 +18,7 @@ def metric_row(metrics):
             color = "#43e97b" if is_positive else "#fa709a"
             trend_html = f'<span style="color: {color}; font-size: 0.85rem; font-weight: 700; margin-left: 8px;">{m["trend"]}</span>'
             
-        icon = m.get('icon', '⚡')
+        icon = m.get('icon', '')
         with cols[i]:
             st.markdown(f'<div class="metric-card fade-in"><span class="metric-icon">{icon}</span><div style="color: #64748b; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; margin-bottom: 8px;">{m["label"]}</div><div style="display: flex; align-items: baseline;"><span class="metric-value">{m["value"]}</span>{trend_html}</div></div>', unsafe_allow_html=True)
 

@@ -9,8 +9,5 @@ supabase
 groq
 fpdf2
 faker
-extra-streamlit-components
-google-api-python-client
-google-auth-oauthlib
-google-auth-httplib2
-google-auth
+requests
+psutil

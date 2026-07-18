@@ -11,6 +11,29 @@ from utils.charts import apply_neon_theme
 from utils.db import fetch_table
 from datetime import datetime
 
+@st.cache_data(ttl=300)
+def get_student_grades_chart(df_marks_json):
+    from io import StringIO
+    df_marks = pd.read_json(StringIO(df_marks_json))
+    colors = ['#00f2fe', '#4facfe', '#43e97b', '#fa709a', '#f093fb', '#ffd700']
+    fig = px.bar(df_marks, x='Subject', y='Marks', 
+                 color='Subject',
+                 color_discrete_sequence=colors,
+                 labels={'Subject': 'Course', 'Marks': 'Grade'})
+    fig = apply_neon_theme(fig, "Marks Distribution")
+    return fig
+
+@st.cache_data(ttl=300)
+def get_student_attendance_chart(weekly_stats_json):
+    from io import StringIO
+    weekly_stats = pd.read_json(StringIO(weekly_stats_json))
+    fig = px.bar(weekly_stats, x='Week Starting', y='Attendance Rate %',
+                 color='Attendance Rate %',
+                 color_continuous_scale=['#fa709a', '#00f2fe', '#43e97b'],
+                 range_y=[0, 100])
+    fig = apply_neon_theme(fig, "Weekly Attendance Rate % Trend")
+    return fig
+
 def show(selection):
     st.markdown('<div class="fade-in">', unsafe_allow_html=True)
     
@@ -22,8 +45,6 @@ def show(selection):
         show_attendance()
     elif selection == "AI Insights":
         show_ai_insights()
-    elif selection == "AI Chatbot":
-        show_chatbot()
         
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -66,7 +87,7 @@ def show_main_dashboard():
         # Exam Countdown
         st.markdown("""
             <div class="glass-card fade-in" style="padding: 1.5rem; margin-bottom: 1.5rem;">
-                <h4 style="margin-top: 0; margin-bottom: 10px;">⏱️ Exam Countdown</h4>
+                <h4 style="margin-top: 0; margin-bottom: 10px;"> Exam Countdown</h4>
             </div>
         """, unsafe_allow_html=True)
         exam_date = st.date_input("Next Exam Date", value=pd.to_datetime('2026-06-15'))
@@ -76,17 +97,17 @@ def show_main_dashboard():
         
         st.markdown("<br>", unsafe_allow_html=True)
         # Achievement Badges
-        st.subheader("🏅 Badges")
-        badges = ["🔥 10 Day Streak", "📚 Top Scorer", "✅ Perfect Attendance"]
+        st.subheader(" Badges")
+        badges = [" 10 Day Streak", " Top Scorer", " Perfect Attendance"]
         for b in badges:
             st.info(b)
 
     with col_main:
         # Key Metrics (Real data-driven values)
         metrics = [
-            {"label": "Current CGPA", "value": f"{student['final_gpa']:.2f}", "trend": f"{'+' if student['final_gpa'] >= student['prev_gpa'] else ''}{student['final_gpa'] - student['prev_gpa']:.2f}", "icon": "🎓"},
-            {"label": "Attendance", "value": f"{int(student['attendance_pct'])}%", "trend": "+1.5%", "icon": "📅"},
-            {"label": "Rank", "value": rank_str, "trend": "Stable", "icon": "🏆"}
+            {"label": "Current CGPA", "value": f"{student['final_gpa']:.2f}", "trend": f"{'+' if student['final_gpa'] >= student['prev_gpa'] else ''}{student['final_gpa'] - student['prev_gpa']:.2f}"},
+            {"label": "Attendance", "value": f"{int(student['attendance_pct'])}%", "trend": "+1.5%"},
+            {"label": "Rank", "value": rank_str, "trend": "Stable"}
         ]
         metric_row(metrics)
         
@@ -94,7 +115,7 @@ def show_main_dashboard():
         # Leaderboard (Top 5 from real data)
         st.markdown("""
             <div class="glass-card fade-in" style="padding: 2rem; margin-bottom: 2rem;">
-                <h3 class="gradient-text" style="margin-top: 0; font-size: 1.8rem; font-weight: 800; letter-spacing: -1px;">🏆 Leaderboard (Top 5)</h3>
+                <h3 class="gradient-text" style="margin-top: 0; font-size: 1.8rem; font-weight: 800; letter-spacing: -1px;"> Leaderboard (Top 5)</h3>
             </div>
         """, unsafe_allow_html=True)
         try:
@@ -130,39 +151,6 @@ def show_main_dashboard():
                                file_name=f"{student.get('name', 'Student').replace(' ', '_')}_report.pdf", 
                                mime="application/pdf",
                                use_container_width=True)
-
-def show_chatbot():
-    from utils.ai import get_ai_response
-    import time
-    
-    section_header("AI Academic Assistant", "Ask me anything about your studies!")
-    
-    if "messages" not in st.session_state:
-        st.session_state.messages = [{"role": "assistant", "content": "Hello! I am your AI Academic Assistant. Ask me anything about your grades, study plans, or performance stats."}]
-
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-
-    if prompt := st.chat_input("How can I improve my GPA?"):
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-
-        with st.chat_message("assistant"):
-            message_placeholder = st.empty()
-            with st.spinner("AI is thinking..."):
-                start_time = time.time()
-                try:
-                    response = get_ai_response(prompt)
-                    elapsed = time.time() - start_time
-                    if elapsed < 0.6:
-                        time.sleep(0.6 - elapsed)
-                except Exception as e:
-                    response = f"I faced a connection issue. Kripya fir se try karein. (Error: {str(e)})"
-            
-            message_placeholder.markdown(response)
-            st.session_state.messages.append({"role": "assistant", "content": response})
 
 def show_grades():
     section_header("Subject-wise Performance", "Detailed breakdown of your grades")
@@ -245,12 +233,8 @@ def show_grades():
     if 'marks' in cols:
         df_marks = df_marks.rename(columns={cols['marks']: 'Marks'})
         
-    colors = ['#00f2fe', '#4facfe', '#43e97b', '#fa709a', '#f093fb', '#ffd700']
-    fig = px.bar(df_marks, x='Subject', y='Marks', 
-                 color='Subject',
-                 color_discrete_sequence=colors,
-                 labels={'Subject': 'Course', 'Marks': 'Grade'})
-    fig = apply_neon_theme(fig, "Marks Distribution")
+    df_marks_json = df_marks.to_json()
+    fig = get_student_grades_chart(df_marks_json)
     st.plotly_chart(fig, use_container_width=True)
     
     # Render table beautifully without index
@@ -289,9 +273,9 @@ def show_attendance():
     
     # Renders a row of premium metric cards
     metrics = [
-        {"label": "Total Present", "value": f"{total_present} Days", "icon": "✅"},
-        {"label": "Total Absent", "value": f"{total_absent} Days", "icon": "❌"},
-        {"label": "Attendance Rate", "value": f"{attendance_pct:.1f}%", "icon": "📊"}
+        {"label": "Total Present", "value": f"{total_present} Days"},
+        {"label": "Total Absent", "value": f"{total_absent} Days"},
+        {"label": "Attendance Rate", "value": f"{attendance_pct:.1f}%"}
     ]
     metric_row(metrics)
     
@@ -304,15 +288,12 @@ def show_attendance():
     ).reset_index()
     weekly_stats.columns = ['Week Starting', 'Attendance Rate %']
     
-    fig = px.bar(weekly_stats, x='Week Starting', y='Attendance Rate %',
-                 color='Attendance Rate %',
-                 color_continuous_scale=['#fa709a', '#00f2fe', '#43e97b'],
-                 range_y=[0, 100])
-    fig = apply_neon_theme(fig, "Weekly Attendance Rate % Trend")
+    weekly_stats_json = weekly_stats.to_json()
+    fig = get_student_attendance_chart(weekly_stats_json)
     st.plotly_chart(fig, use_container_width=True)
     
     # Calendar Heatmap / Grid Visual Log
-    st.markdown("### 📅 Daily Attendance Badges")
+    st.markdown("###  Daily Attendance Badges")
     timeline_html = "<div style='display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;'>"
     for _, row in df_att.sort_values('date').iterrows():
         d_str = row['date'].strftime('%b %d')
@@ -368,8 +349,8 @@ def show_ai_insights():
             """, unsafe_allow_html=True)
             
             if st.session_state.pred_risk > 30:
-                st.warning("⚠️ High Risk detected. AI recommends increasing study hours and attending more sessions.")
+                st.warning(" High Risk detected. AI recommends increasing study hours and attending more sessions.")
             else:
-                st.success("✅ On track for excellence. Keep up the consistent effort!")
+                st.success(" On track for excellence. Keep up the consistent effort!")
         else:
             st.info("Adjust the sliders and click 'Predict' to see AI insights.")

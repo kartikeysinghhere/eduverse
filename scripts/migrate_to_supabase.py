@@ -67,6 +67,10 @@ def main():
             admin_raw = admin_raw or secrets.token_urlsafe(16)
             teacher_raw = teacher_raw or secrets.token_urlsafe(16)
             student_raw = student_raw or secrets.token_urlsafe(16)
+            
+            print(f"[!] Generated admin password: {admin_raw} — SAVE THIS, it will not be shown again")
+            print(f"[!] Generated teacher password: {teacher_raw} — SAVE THIS, it will not be shown again")
+            print(f"[!] Generated student password: {student_raw} — SAVE THIS, it will not be shown again")
         else:
             print("[!] Error: Required password environment variables are missing for Supabase migration!")
             print("    Please set the following environment variables:")
@@ -101,19 +105,24 @@ def main():
 
     # --- 1. CLEAN EXISTING PRODUCTION TABLES ---
     print("\nCleaning existing production Supabase database tables to prevent conflicts...")
-    tables_to_clean = ["marks", "attendance", "subjects", "students", "teachers"]
+    tables_to_clean = ["grades", "attendance", "subjects", "students", "teachers"]
     for t in tables_to_clean:
         try:
-            # Delete rows where ID >= 0 (all rows)
+            # First try assuming ID is an Integer
             supabase.table(t).delete().gt("id", -1).execute()
-            print(f"  - Table '{t}' successfully cleared.")
+            print(f"  - Table '{t}' successfully cleared (Int ID).")
         except Exception as e:
-            # Fallback for tables that might use different primary keys or don't have ID column
             try:
-                supabase.table(t).delete().neq("name", "dummy_non_existent").execute()
-                print(f"  - Table '{t}' successfully cleared (non-ID fallback).")
+                # Fallback: assume ID is a UUID
+                supabase.table(t).delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+                print(f"  - Table '{t}' successfully cleared (UUID ID).")
             except Exception as ex:
-                print(f"  - Table '{t}' clear failed or empty: {ex}")
+                try:
+                    # Final fallback: table might not have an 'id' column, try another field or a non-existent name
+                    supabase.table(t).delete().neq("name", "dummy_non_existent").execute()
+                    print(f"  - Table '{t}' successfully cleared (non-ID fallback).")
+                except Exception as ex2:
+                    print(f"  - Table '{t}' clear failed or empty: {ex2}")
 
     # Try to clean optional 'users' table if it exists
     try:
@@ -152,13 +161,17 @@ def main():
         sid = int(row['student_id'])
         sname = row['name']
         students_to_load.append({
-            "id": sid,
-            "name": sname,
-            "gender": guess_gender(sname),
-            "enrollment_date": get_enrollment_date(int(row['semester'])),
-            "study_hours_per_week": float(row['study_hours']),
-            "class_name": row['department'],
-            "status": "Active"
+            "student_id": int(row['student_id']),
+            "name": row['name'],
+            "department": row['department'],
+            "semester": int(row['semester']),
+            "attendance_pct": float(row['attendance_pct']),
+            "internal_marks": float(row['internal_marks']),
+            "assignments_completed": int(row['assignments_completed']),
+            "study_hours": float(row['study_hours']),
+            "prev_gpa": float(row['prev_gpa']),
+            "final_gpa": float(row['final_gpa']),
+            "risk": int(row['risk'])
         })
     batch_insert(supabase, "students", students_to_load, batch_size=200)
 
@@ -181,24 +194,24 @@ def main():
             })
     batch_insert(supabase, "attendance", attendance_to_load, batch_size=200)
 
-    # --- 6. PREPARE & LOAD MARKS RECORDS ---
-    print("\nPreparing course marks records (3,000 records)...")
-    marks_to_load = []
+    # --- 6. PREPARE & LOAD GRADES RECORDS ---
+    print("\nPreparing course grades records (3,000 records)...")
+    grades_to_load = []
+    
+    subjects_list = ["Mathematics", "Physics", "Computer Science", "Data Structures", "AI", "Ethics"]
     
     for _, row in df.iterrows():
         sid = int(row['student_id'])
         base_marks = float(row['internal_marks'])
         
-        for sub_id in range(1, 7):
+        for sub_name in subjects_list:
             score = int(np.clip(np.random.normal(base_marks, 8), 30, 100))
-            marks_to_load.append({
+            grades_to_load.append({
                 "student_id": sid,
-                "subject_id": sub_id,
-                "exam_type": "Final Exam",
-                "score": score,
-                "max_score": 100
+                "Subject": sub_name,
+                "Marks": score
             })
-    batch_insert(supabase, "marks", marks_to_load, batch_size=200)
+    batch_insert(supabase, "grades", grades_to_load, batch_size=200)
 
     # --- 7. PREPARE & LOAD OPTIONAL USERS TABLE ---
     print("\nPreparing users table credentials...")

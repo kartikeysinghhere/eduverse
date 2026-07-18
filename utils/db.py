@@ -7,15 +7,54 @@ from datetime import datetime
 import streamlit as st
 import json
 from pathlib import Path
+import time
 
 # Resolve absolute root dynamically
 ROOT = Path(__file__).resolve().parent.parent
-load_dotenv(dotenv_path=ROOT / ".env")
+load_dotenv(dotenv_path=ROOT / ".env", override=True)
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 DB_MODE = os.environ.get("DB_MODE", "supabase")
 
+# Whitelist of allowed table and column names to prevent SQL injection
+VALID_TABLES = {"users", "students", "grades", "marks", "attendance", "departments", "analytics_logs", "subjects", "teachers"}
+VALID_FILTER_COLUMNS = {"student_id", "user_id", "username", "email", "role", "department", "id"}
+
+# Initialize global tracking variables in system/module namespace
+if "APP_START_TIME" not in globals():
+    globals()["APP_START_TIME"] = time.time()
+
+if "QUERY_COUNTER" not in globals():
+    globals()["QUERY_COUNTER"] = 0
+
+def get_uptime_seconds() -> float:
+    return time.time() - globals().get("APP_START_TIME", time.time())
+
+def get_query_count() -> int:
+    return globals().get("QUERY_COUNTER", 0)
+
+def increment_query_count():
+    globals()["QUERY_COUNTER"] = globals().get("QUERY_COUNTER", 0) + 1
+
+@st.cache_data(ttl=15)
+def get_db_latency() -> float:
+    start = time.perf_counter()
+    try:
+        if DB_MODE == "supabase" and SUPABASE_URL and SUPABASE_KEY:
+            supabase = get_supabase_client()
+            supabase.table("users").select("id").limit(1).execute()
+        else:
+            conn = sqlite3.connect(str(ROOT / "eduverse.db"))
+            cur = conn.cursor()
+            cur.execute("SELECT 1")
+            cur.fetchone()
+            conn.close()
+    except Exception:
+        pass
+    return (time.perf_counter() - start) * 1000.0
+
+@st.cache_resource
 def get_supabase_client() -> Client:
     if not SUPABASE_URL or not SUPABASE_KEY:
         raise ValueError("Supabase URL and Key must be set in environment variables.")
@@ -25,51 +64,30 @@ def get_supabase_client() -> Client:
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
-def verify_password(password: str, hashed: str) -> bool:
-    return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
 
-def sign_in(username, password):
-    # Dynamic routing for auth
-    if DB_MODE == "supabase" and SUPABASE_URL and SUPABASE_KEY:
-        try:
-            supabase = get_supabase_client()
-            response = supabase.table("users").select("*").eq("username", username).execute()
-            if response.data:
-                user = response.data[0]
-                if verify_password(password, user['password_hash']):
-                    return user
-        except Exception as e:
-            print(f"Supabase auth error: {e}. Falling back to SQLite.")
-            
-    # Fallback to local SQLite
-    try:
-        conn = sqlite3.connect(str(ROOT / "eduverse.db"))
-        conn.row_factory = sqlite3.Row
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM users WHERE username = ?", (username,))
-        row = cur.fetchone()
-        conn.close()
-        
-        if row:
-            user = dict(row)
-            if verify_password(password, user['password_hash']):
-                return user
-        return None
-    except Exception as e:
-        print(f"SQLite auth error: {e}")
-        return None
 
 # Internal cached fetcher with hashable arguments
 @st.cache_data(ttl=60)
 def _fetch_table_cached(table_name, filters_json, db_mode):
-    filters = json.loads(filters_json) if filters_json else None
-    
-    # 1. Supabase Mode
+    # Validate table name against whitelist to prevent SQL injection
+    if table_name not in VALID_TABLES:
+        raise ValueError(f"Invalid table name: '{table_name}'. Allowed tables: {VALID_TABLES}")
+
+    # Validate filter column names against whitelist
+    if filters_json:
+        filters = json.loads(filters_json)
+        for k in filters.keys():
+            if k not in VALID_FILTER_COLUMNS:
+                raise ValueError(f"Invalid filter column: '{k}'. Allowed columns: {VALID_FILTER_COLUMNS}")
+
+    # This represents a query invocation hitting the DB (uncached/expired)
+    # Return directly from Supabase or SQLite
     if db_mode == "supabase" and SUPABASE_URL and SUPABASE_KEY:
         try:
             supabase = get_supabase_client()
             query = supabase.table(table_name).select("*")
-            if filters:
+            if filters_json:
+                filters = json.loads(filters_json)
                 for k, v in filters.items():
                     query = query.eq(k, v)
             response = query.execute()
@@ -77,16 +95,17 @@ def _fetch_table_cached(table_name, filters_json, db_mode):
         except Exception as e:
             print(f"Supabase fetch failed for {table_name}: {e}. Trying local SQLite.")
             
-    # 2. SQLite Mode (Primary or Fallback)
     try:
         conn = sqlite3.connect(str(ROOT / "eduverse.db"))
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
         
+        # table_name and column names are validated against whitelists above
         query = f"SELECT * FROM {table_name}"
         params = []
         
-        if filters:
+        if filters_json:
+            filters = json.loads(filters_json)
             where_clauses = []
             for k, v in filters.items():
                 where_clauses.append(f"{k} = ?")
@@ -103,27 +122,31 @@ def _fetch_table_cached(table_name, filters_json, db_mode):
 
 # Public interface for general data fetching
 def fetch_table(table_name, filters=None):
+    increment_query_count()
     # Convert filters to a JSON string to make them hashable for st.cache_data
     filters_json = json.dumps(filters, sort_keys=True) if filters else None
     return _fetch_table_cached(table_name, filters_json, DB_MODE)
 
 # Logging (Non-blocking background-style execution in case of Supabase offline)
 def log_action(user_id, action):
-    # Write to local SQLite first to ensure audit trail is preserved
-    try:
-        conn = sqlite3.connect(str(ROOT / "eduverse.db"))
-        cur = conn.cursor()
-        cur.execute("""
-        INSERT INTO analytics_logs (user_id, action, timestamp)
-        VALUES (?, ?, ?)
-        """, (user_id, action, datetime.now().isoformat()))
-        conn.commit()
-        conn.close()
-    except Exception as e:
-        print(f"SQLite logging error: {e}")
+    increment_query_count()
+    # Write to local SQLite only if not in Supabase mode (avoids ephemeral filesystem issues in production)
+    if DB_MODE != "supabase":
+        try:
+            conn = sqlite3.connect(str(ROOT / "eduverse.db"))
+            cur = conn.cursor()
+            cur.execute("""
+            INSERT INTO analytics_logs (user_id, action, timestamp)
+            VALUES (?, ?, ?)
+            """, (user_id, action, datetime.now().isoformat()))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"SQLite logging error: {e}")
 
     # Write to Supabase asynchronously / with try-except to avoid blocking UI
     if DB_MODE == "supabase" and SUPABASE_URL and SUPABASE_KEY:
+        increment_query_count()
         try:
             supabase = get_supabase_client()
             supabase.table("analytics_logs").insert({

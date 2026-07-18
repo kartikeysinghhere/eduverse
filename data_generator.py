@@ -45,6 +45,8 @@ def pct_to_gpa(pct):
         else:
             gpa = round(0.0 + (pct - 40) * (1.7 - 0.0) / (70 - 40), 2)
             
+    # Note: "At-risk" students are defined as having a GPA in the [1.5, 2.0) band.
+    # We enforce a floor of 1.5 here so that even poorly performing students aren't scored below this.
     return max(1.5, gpa)  # No student below 1.5 GPA
 
 def generate_dataset(n=500, target_min=3.20, target_max=3.40):
@@ -77,6 +79,8 @@ def generate_dataset(n=500, target_min=3.20, target_max=3.40):
             final_gpa = pct_to_gpa(score)
             
             prev_gpa = np.clip(np.random.normal(final_gpa, 0.20), 1.5, 4.0).round(2)
+            # Note: Because of the 1.5 GPA floor above, this effectively flags 
+            # students in the narrow band of [1.5, 2.0) as at-risk.
             risk = 1 if final_gpa < 2.0 else 0
             
             students.append({

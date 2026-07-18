@@ -5,6 +5,7 @@ import logging
 import streamlit as st
 from dotenv import load_dotenv
 from pathlib import Path
+from utils.db import get_supabase_client
 
 # Configure secure logging
 logger = logging.getLogger("eduverse.auth")
@@ -13,7 +14,7 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 ROOT = Path(__file__).resolve().parent.parent
-load_dotenv(dotenv_path=ROOT / ".env")
+load_dotenv(dotenv_path=ROOT / ".env", override=True)
 
 DB_MODE = os.environ.get("DB_MODE", "supabase")
 
@@ -62,15 +63,7 @@ def sign_in(username, password):
     # 2. Supabase Authentication Flow
     if DB_MODE == "supabase":
         try:
-            from supabase import create_client
-            URL = os.environ.get("SUPABASE_URL")
-            KEY = os.environ.get("SUPABASE_KEY")
-            
-            if not URL or not KEY:
-                logger.error("Supabase environment configuration missing.")
-                return None
-                
-            supabase = create_client(URL, KEY)
+            supabase = get_supabase_client()
             # Fetch user securely by username first, then by email. This keeps
             # existing admin/teacher logins stable while allowing email login.
             response = supabase.table("users").select("*").eq("username", login_id).execute()
@@ -127,36 +120,13 @@ def sign_in_with_google(google_user_info):
     # 1. Supabase Mode
     if DB_MODE == "supabase":
         try:
-            from supabase import create_client
-            URL = os.environ.get("SUPABASE_URL")
-            KEY = os.environ.get("SUPABASE_KEY")
-            
-            if not URL or not KEY:
-                logger.error("Supabase environment configuration missing.")
-                return None
-                
-            supabase = create_client(URL, KEY)
+            supabase = get_supabase_client()
             # Check if email exists
             response = supabase.table("users").select("*").eq("email", email).execute()
             if response.data:
                 return response.data[0]
             
-            # If email NOT found in DB: auto-create new user with role=Student
-            import secrets
-            username = email.split("@")[0]
-            random_password = secrets.token_urlsafe(32)
-            password_hash = bcrypt.hashpw(random_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-            
-            new_user = {
-                "username": username,
-                "email": email,
-                "password_hash": password_hash,
-                "role": "Student"
-            }
-            
-            insert_res = supabase.table("users").insert(new_user).execute()
-            if insert_res.data:
-                return insert_res.data[0]
+            # If email NOT found in DB: return None (no auto-creation)
             return None
         except Exception as e:
             logger.error(f"Supabase sign_in_with_google error: {e}")
@@ -176,23 +146,7 @@ def sign_in_with_google(google_user_info):
             conn.close()
             return dict(row)
             
-        # If email NOT found in DB: auto-create new user with role=Student
-        import secrets
-        username = email.split("@")[0]
-        random_password = secrets.token_urlsafe(32)
-        password_hash = bcrypt.hashpw(random_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        
-        cur.execute(
-            "INSERT INTO users (username, password_hash, role, email) VALUES (?, ?, ?, ?)",
-            (username, password_hash, "Student", email)
-        )
-        conn.commit()
-        
-        cur.execute("SELECT * FROM users WHERE email = ?", (email,))
-        new_row = cur.fetchone()
-        conn.close()
-        if new_row:
-            return dict(new_row)
+        # If email NOT found in DB: return None (no auto-creation)
         return None
     except Exception as e:
         logger.error(f"SQLite sign_in_with_google error: {e}")

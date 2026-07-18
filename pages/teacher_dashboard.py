@@ -36,10 +36,10 @@ def show_teacher_main():
     pending = len(df[df['assignments_completed'] < 15])
     
     metrics = [
-        {"label": "Total Students", "value": str(total_students), "trend": "Stable", "icon": "👥"},
-        {"label": "Class Average", "value": class_avg, "trend": "+1.2%", "icon": "📊"},
-        {"label": "At Risk", "value": str(at_risk), "trend": "Decreasing", "icon": "⚠️"},
-        {"label": "Pending Tasks", "value": str(pending), "trend": "Active", "icon": "📝"}
+        {"label": "Total Students", "value": str(total_students), "trend": "Stable"},
+        {"label": "Class Average", "value": class_avg, "trend": "+1.2%"},
+        {"label": "At Risk", "value": str(at_risk), "trend": "Decreasing"},
+        {"label": "Pending Tasks", "value": str(pending), "trend": "Active"}
     ]
     metric_row(metrics)
     
@@ -53,10 +53,10 @@ def show_teacher_main():
         for idx, (_, row) in enumerate(df_top.iterrows()):
             top_performers_html += f"{idx+1}. <b>{row['name']}</b> - GPA: {row['final_gpa']:.2f}<br/>"
         
-        glass_card("🏆 Top Performers", top_performers_html)
+        glass_card(" Top Performers", top_performers_html)
         
     with col2:
-        glass_card("🔔 Recent Activity", f"""
+        glass_card(" Recent Activity", f"""
             - <i>Attendance for Lab 4 is below average (65%).</i> <br/>
             - <i>Real-time synchronization with local SQLite DB completed.</i> <br/>
             - <i>Currently tracking {at_risk} at-risk students for mentorship.</i>
@@ -71,13 +71,13 @@ def show_student_list():
         if not data:
             raise Exception("empty")
         df = pd.DataFrame(data)
-    except:
+    except Exception:
         df = generate_student_data(45)
     
     # Simple search
-    search = st.text_input("🔍 Search Student by ID or Name")
+    search = st.text_input(" Search Student by ID or Name")
     if search:
-        df = df[df['student_id'].astype(str).str.contains(search) | df['name'].str.contains(search, case=False)]
+        df = df[df['student_id'].astype(str).str.contains(search, regex=False) | df['name'].str.contains(search, case=False, regex=False)]
     
     st.dataframe(df, use_container_width=True)
     
@@ -110,24 +110,37 @@ def show_upload_marks():
             if submitted:
                 st.success(f"Marks for {sid} in {sub} saved.")
 
+@st.cache_data(ttl=300)
+def get_teacher_histogram_chart(df_json):
+    from io import StringIO
+    df = pd.read_json(StringIO(df_json))
+    fig = px.histogram(df, x='internal_marks', nbins=20,
+                       labels={'internal_marks': 'Internal Marks', 'count': 'Number of Students'})
+    fig = apply_neon_theme(fig, "Internal Marks Distribution")
+    return fig
+
+@st.cache_data(ttl=300)
+def get_teacher_scatter_chart(df_json):
+    from io import StringIO
+    df = pd.read_json(StringIO(df_json))
+    fig = px.scatter(df, x='study_hours', y='final_gpa', color='attendance',
+                     labels={'study_hours': 'Daily Study Hours', 'final_gpa': 'Predicted GPA', 'attendance': 'Attendance %'})
+    fig = apply_neon_theme(fig, "Study Hours vs GPA")
+    return fig
+
 def show_class_analytics():
     section_header("Class-wide Insights", "Visualize trends and identify bottlenecks")
     df = generate_student_data(100)
     
     col1, col2 = st.columns(2)
+    df_json = df.to_json()
     
     with col1:
-        # Marks distribution
-        fig = px.histogram(df, x='internal_marks', nbins=20,
-                           labels={'internal_marks': 'Internal Marks', 'count': 'Number of Students'})
-        fig = apply_neon_theme(fig, "Internal Marks Distribution")
-        st.plotly_chart(fig, use_container_width=True)
+        fig_hist = get_teacher_histogram_chart(df_json)
+        st.plotly_chart(fig_hist, use_container_width=True)
         
     with col2:
-        # Study Hours vs GPA
-        fig = px.scatter(df, x='study_hours', y='final_gpa', color='attendance',
-                         labels={'study_hours': 'Daily Study Hours', 'final_gpa': 'Predicted GPA', 'attendance': 'Attendance %'})
-        fig = apply_neon_theme(fig, "Study Hours vs GPA")
-        st.plotly_chart(fig, use_container_width=True)
+        fig_scatter = get_teacher_scatter_chart(df_json)
+        st.plotly_chart(fig_scatter, use_container_width=True)
         
-    st.info("💡 Insights: Students with > 5 study hours show 15% better performance in final grades.")
+    st.info(" Insights: Students with > 5 study hours show 15% better performance in final grades.")
