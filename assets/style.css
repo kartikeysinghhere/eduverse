@@ -17,8 +17,7 @@
 
 /* Hide Streamlit Header & Footer */
 header, footer {
-    visibility: hidden;
-    height: 0;
+    display: none !important;
 }
 
 /* Global Background with Particles Feel */
@@ -188,7 +187,7 @@ div[data-testid="stVerticalBlock"] > div > button:hover {
 
 /* Hero Section */
 .hero-container {
-    padding: 3rem 2rem;
+    padding: 1.2rem 2rem 0.8rem;
     text-align: center;
 }
 
@@ -249,31 +248,35 @@ div[data-testid="stVerticalBlock"] > div > button:hover {
     max-height: 100vh !important;
 }
 
-/* Reduce top padding on block container to 1rem max */
+/* Minimal padding — keep everything within viewport */
 .stApp:has(.unauthenticated-root) .main .block-container {
-    padding-top: 0.8rem !important;
-    padding-bottom: 0.8rem !important;
+    padding-top: 0rem !important;
+    padding-bottom: 0rem !important;
     display: flex !important;
     flex-direction: column !important;
     justify-content: center !important;
 }
 
-/* Tighten gaps between block-level components */
+/* Tight gaps to fit within viewport and center the actual content block */
 .stApp:has(.unauthenticated-root) [data-testid="stVerticalBlock"] {
-    gap: 0.4rem !important;
+    gap: 0.15rem !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    height: 100% !important;
 }
 
-/* Reduce login card padding and margin */
+/* Login card padding — compact to fit viewport */
 .stApp:has(.unauthenticated-root) [data-testid="column"]:nth-of-type(2) {
-    padding: 1.4rem 2rem !important; /* Highly optimized card padding */
+    padding: 0.8rem 2.2rem !important;
     border-radius: 20px !important;
 }
 
 /* Optimize header heights & margins */
 .stApp:has(.unauthenticated-root) .sidebar-logo {
-    font-size: 2.8rem !important; /* Compact logo size */
+    font-size: 2.4rem !important;
     margin-bottom: 0px !important;
-    line-height: 1.1 !important;
+    line-height: 1 !important;
 }
 
 /* Scale down the "Welcome Back" header font-size and margin */
@@ -281,19 +284,41 @@ div[data-testid="stVerticalBlock"] > div > button:hover {
     line-height: 1.2 !important;
 }
 
-/* Compact input labels and field paddings */
+/* Input labels — readable but compact */
 .stApp:has(.unauthenticated-root) label {
+    margin-bottom: 0.1rem !important;
+    font-size: 0.9rem !important;
+    font-weight: 600 !important;
+    color: #cbd5e1 !important;
+}
+
+/* Input fields — comfortable size */
+.stApp:has(.unauthenticated-root) input {
+    padding: 0.4rem 0.7rem !important;
+    font-size: 0.95rem !important;
+}
+
+/* Compact spacers and paragraph margins */
+.stApp:has(.unauthenticated-root) .stMarkdown div p {
     margin-bottom: 0.2rem !important;
 }
 
-.stApp:has(.unauthenticated-root) input {
-    padding: 0.4rem 0.6rem !important;
-    font-size: 0.9rem !important;
+/* Strip Streamlit internal widget wrapper spacing */
+.stApp:has(.unauthenticated-root) [data-testid="stTextInput"],
+.stApp:has(.unauthenticated-root) [data-testid="stButton"],
+.stApp:has(.unauthenticated-root) [data-testid="stMarkdown"] {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
 }
 
-/* Clean compact spacers */
-.stApp:has(.unauthenticated-root) .stMarkdown div p {
-    margin-bottom: 0.4rem !important;
+/* Streamlit's bottom-padding on text input containers */
+.stApp:has(.unauthenticated-root) .stTextInput > div {
+    padding-bottom: 0 !important;
 }
 
+/* Streamlit button containers */
+.stApp:has(.unauthenticated-root) .stButton > button {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
 

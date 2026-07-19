@@ -375,11 +375,11 @@ def show_landing_page():
     st.markdown("""
         <style>
         .main .block-container {
-            padding-top: 1rem !important;
+            padding-top: 0.3rem !important;
             padding-bottom: 0rem !important;
         }
         [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlock"] {
-            gap: 0 !important;
+            gap: 0.2rem !important;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -387,23 +387,23 @@ def show_landing_page():
     if not st.session_state.get("show_login", False):
         st.markdown("""
             <div class="hero-container fade-in">
-                <div class="sidebar-logo" style="font-size: 3.5rem; margin-bottom: 5px; line-height: 1;">EduVerse</div>
-                <p style="font-size: 1.1rem; color: #94a3b8; max-width: 800px; margin: 0 auto 2rem; font-weight: 400; line-height: 1.4;">
+                <div class="sidebar-logo" style="font-size: 2.8rem; margin-bottom: 2px; line-height: 1;">EduVerse</div>
+                <p style="font-size: 1rem; color: #94a3b8; max-width: 800px; margin: 0 auto 0.8rem; font-weight: 400; line-height: 1.4;">
                     The <span class="gradient-text" style="font-weight: 800;">World-Class</span> Intelligence layer for modern education.<br/>
                     AI-powered analytics that feel like the future.
                 </p>
-                <div style="display: flex; justify-content: center; gap: 1.5rem; margin-bottom: 1.8rem; margin-top: 2.5rem;">
-                    <div class="glass-card floating-card" style="padding: 1.5rem 2.5rem;">
-                        <span style="font-size: 2.8rem; font-weight: 900; color: #00f2fe; display: block;">500+</span>
-                        <span style="color: #64748b; font-weight: 700; letter-spacing: 1px; font-size: 0.85rem;">STUDENTS</span>
+                <div style="display: flex; justify-content: center; gap: 1.2rem; margin-bottom: 0.6rem; margin-top: 1rem;">
+                    <div class="glass-card floating-card" style="padding: 1rem 2rem;">
+                        <span style="font-size: 2.2rem; font-weight: 900; color: #00f2fe; display: block;">500+</span>
+                        <span style="color: #64748b; font-weight: 700; letter-spacing: 1px; font-size: 0.8rem;">STUDENTS</span>
                     </div>
-                    <div class="glass-card floating-card" style="padding: 1.5rem 2.5rem; animation-delay: 1s;">
-                        <span style="font-size: 2.8rem; font-weight: 900; color: #43e97b; display: block;">95%</span>
-                        <span style="color: #64748b; font-weight: 700; letter-spacing: 1px; font-size: 0.85rem;">PASS RATE</span>
+                    <div class="glass-card floating-card" style="padding: 1rem 2rem; animation-delay: 1s;">
+                        <span style="font-size: 2.2rem; font-weight: 900; color: #43e97b; display: block;">95%</span>
+                        <span style="color: #64748b; font-weight: 700; letter-spacing: 1px; font-size: 0.8rem;">PASS RATE</span>
                     </div>
-                    <div class="glass-card floating-card" style="padding: 1.5rem 2.5rem; animation-delay: 2s;">
-                        <span style="font-size: 2.8rem; font-weight: 900; color: #fa709a; display: block;">AI</span>
-                        <span style="color: #64748b; font-weight: 700; letter-spacing: 1px; font-size: 0.85rem;">INSIGHTS</span>
+                    <div class="glass-card floating-card" style="padding: 1rem 2rem; animation-delay: 2s;">
+                        <span style="font-size: 2.2rem; font-weight: 900; color: #fa709a; display: block;">AI</span>
+                        <span style="color: #64748b; font-weight: 700; letter-spacing: 1px; font-size: 0.8rem;">INSIGHTS</span>
                     </div>
                 </div>
             </div>
@@ -413,9 +413,9 @@ def show_landing_page():
             <style>
             div[data-testid="stColumn"] button {
                 min-width: 300px !important;
-                margin-top: 2.5rem !important;
-                font-size: 1.1rem !important;
-                padding: 0.8rem 2rem !important;
+                margin-top: 0.8rem !important;
+                font-size: 1.05rem !important;
+                padding: 0.7rem 2rem !important;
                 height: auto !important;
             }
             </style>
@@ -427,9 +427,6 @@ def show_landing_page():
                 st.session_state.show_login = True
                 st.rerun()
     else:
-        # Compact Top Header - margin-bottom set to 0 to avoid dark bar
-        st.markdown('<div style="text-align: center; margin-bottom: 0rem; margin-top: 0.5rem;"><div class="sidebar-logo" style="font-size: 2.8rem; margin-bottom: 0; line-height: 1;">EduVerse</div><p style="color: #64748b; font-weight: 600; margin-top: 2px; font-size: 0.9rem; margin-bottom: 0.4rem;">AI-Powered Education Analytics</p></div>', unsafe_allow_html=True)
-        
         col1, col2, col3 = st.columns([1, 1.8, 1])
         with col2:
             st.markdown("""
@@ -439,15 +436,21 @@ def show_landing_page():
                     backdrop-filter: blur(20px) !important;
                     border: 1px solid rgba(255, 255, 255, 0.08) !important;
                     border-radius: 20px !important;
-                    padding: 1.4rem 2rem !important;
+                    padding: 1rem 2.2rem !important;
                     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3) !important;
                 }
                 </style>
             """, unsafe_allow_html=True)
             
-            # Using div with style instead of h1/h2 to avoid anchor links
-            st.markdown("<div style='font-size: 2rem; font-weight: 800; color: #1e293b; margin-bottom: 5px; text-align: center; font-family: Inter, sans-serif;'>EduVerse Access</div>", unsafe_allow_html=True)
-            st.markdown('<div style="text-align: center; color: #94a3b8; font-size: 0.9rem; margin-bottom: 0.8rem;">Secure entry to your EduVerse account</div>', unsafe_allow_html=True)
+            # Combined header: logo + tagline + card heading in one block
+            st.markdown("""
+                <div style="text-align: center; margin-bottom: 0;">
+                    <div class="sidebar-logo" style="font-size: 2rem; margin-bottom: 0; line-height: 1;">EduVerse</div>
+                    <div style="color: #64748b; font-weight: 600; font-size: 0.8rem; margin-bottom: 2px;">AI-Powered Education Analytics</div>
+                    <div style="font-size: 1.15rem; font-weight: 800; color: #e2e8f0; line-height: 1.2; font-family: Inter, sans-serif;">EduVerse Access</div>
+                    <div style="color: #94a3b8; font-size: 0.8rem; margin-top: 0;">Secure entry to your EduVerse account</div>
+                </div>
+            """, unsafe_allow_html=True)
             
             if st.session_state.get("google_auth_error"):
                 st.error(st.session_state.google_auth_error)
@@ -456,8 +459,44 @@ def show_landing_page():
             username = st.text_input("Username", placeholder="e.g. admin")
             password = st.text_input("Password", type="password", placeholder="••••••••")
             
-            st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
-            if st.button("Access Dashboard", use_container_width=True):
+            st.markdown("""
+                <style>
+                /* Primary CTA — cyan fill for Access Dashboard */
+                .st-key-access_dashboard_btn button {
+                    background: linear-gradient(135deg, #00d4ff, #00b4d8) !important;
+                    color: #0a0f1e !important;
+                    border: none !important;
+                    font-weight: 700 !important;
+                    font-size: 1rem !important;
+                    padding: 0.55rem 1.4rem !important;
+                    border-radius: 12px !important;
+                    box-shadow: 0 4px 18px rgba(0, 212, 255, 0.25) !important;
+                    transition: all 0.3s ease !important;
+                }
+                .st-key-access_dashboard_btn button:hover {
+                    background: linear-gradient(135deg, #00f2fe, #00c4e0) !important;
+                    box-shadow: 0 6px 24px rgba(0, 242, 254, 0.4) !important;
+                    transform: translateY(-1px) !important;
+                }
+                /* Return to Home — subtle secondary style */
+                .st-key-back_home button {
+                    background: transparent !important;
+                    color: #94a3b8 !important;
+                    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+                    box-shadow: none !important;
+                    font-weight: 500 !important;
+                    font-size: 0.95rem !important;
+                }
+                .st-key-back_home button:hover {
+                    background: rgba(255, 255, 255, 0.05) !important;
+                    color: #e2e8f0 !important;
+                    box-shadow: none !important;
+                    transform: none !important;
+                }
+                </style>
+            """, unsafe_allow_html=True)
+            st.markdown("<div style='height: 0;'></div>", unsafe_allow_html=True)
+            if st.button("Access Dashboard", key="access_dashboard_btn", use_container_width=True):
                 username_cleaned = username.strip() if username else ""
                 
                 if is_login_blocked(username_cleaned):
@@ -489,7 +528,7 @@ def show_landing_page():
                         st.error("Invalid credentials")
             
             # --- OR Divider ---
-            st.markdown("<div style='text-align: center; margin: 15px 0; color: #64748b; font-weight: bold;'>— OR —</div>", unsafe_allow_html=True)
+            st.markdown("<div style='text-align: center; padding: 14px 0; margin: 0; color: #64748b; font-weight: bold; font-size: 0.9rem; letter-spacing: 1px;'>— OR —</div>", unsafe_allow_html=True)
             
             # Google OAuth Login Button
             try:
@@ -497,8 +536,8 @@ def show_landing_page():
                 st.markdown(f'''
                     <a href="{auth_url}" target="_self">
                         <button style="background:#1a73e8; color:white; border:none; 
-                        padding:12px 24px; border-radius:8px; cursor:pointer; 
-                        font-size:16px; width:100%;">
+                        padding:8px 20px; border-radius:8px; cursor:pointer; 
+                        font-size:14px; width:100%;">
                             Sign in with Google
                         </button>
                     </a>
@@ -506,7 +545,7 @@ def show_landing_page():
             except Exception as e:
                 st.error("Google login currently unavailable.")
             
-            st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='height: 0;'></div>", unsafe_allow_html=True)
             if st.button("← Return to Home", key="back_home", use_container_width=True):
                 st.session_state.show_login = False
                 st.rerun()
