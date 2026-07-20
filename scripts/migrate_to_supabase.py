@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Resolve dynamic ROOT path and load .env
 ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(dotenv_path=ROOT / ".env")
 
@@ -26,7 +25,6 @@ def guess_gender(name: str) -> str:
     return 'Male'
 
 def get_enrollment_date(semester: int) -> str:
-    # Estimate enrollment date based on semester (academic year 2025-26)
     if semester in (1, 2):
         return '2025-09-01'
     elif semester in (3, 4):
@@ -49,8 +47,7 @@ def main():
     print("====================================================")
     print("    EduVerse Supabase Production Migration Script   ")
     print("====================================================")
-    
-    # 1. Enforce strict environment variables check at the very top
+
     if not SUPABASE_URL or not SUPABASE_KEY:
         print("Error: SUPABASE_URL and SUPABASE_KEY must be configured in your .env file!")
         raise SystemExit(1)
@@ -67,7 +64,7 @@ def main():
             admin_raw = admin_raw or secrets.token_urlsafe(16)
             teacher_raw = teacher_raw or secrets.token_urlsafe(16)
             student_raw = student_raw or secrets.token_urlsafe(16)
-            
+
             print(f"[!] Generated admin password: {admin_raw} — SAVE THIS, it will not be shown again")
             print(f"[!] Generated teacher password: {teacher_raw} — SAVE THIS, it will not be shown again")
             print(f"[!] Generated student password: {student_raw} — SAVE THIS, it will not be shown again")
@@ -81,20 +78,18 @@ def main():
             print("      EDUVERSE_ALLOW_RANDOM_DEV_PASSWORDS=true")
             raise SystemExit(1)
 
-    # Hash passwords immediately at start
     admin_pw = hash_password(admin_raw)
     teacher_pw = hash_password(teacher_raw)
     student_pw = hash_password(student_raw)
-        
+
     csv_path = ROOT / "data" / "sample_data.csv"
     if not csv_path.exists():
         print(f"Error: Dataset not found at {csv_path}! Run data_generator.py first.")
         return
-        
+
     df = pd.read_csv(csv_path)
     print(f"Loaded {len(df)} student records from local CSV.")
-    
-    # Initialize Supabase Client
+
     try:
         from supabase import create_client
         supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -103,35 +98,29 @@ def main():
         print(f"Failed to initialize Supabase client: {e}")
         return
 
-    # --- 1. CLEAN EXISTING PRODUCTION TABLES ---
     print("\nCleaning existing production Supabase database tables to prevent conflicts...")
     tables_to_clean = ["grades", "attendance", "subjects", "students", "teachers"]
     for t in tables_to_clean:
         try:
-            # First try assuming ID is an Integer
             supabase.table(t).delete().gt("id", -1).execute()
             print(f"  - Table '{t}' successfully cleared (Int ID).")
         except Exception as e:
             try:
-                # Fallback: assume ID is a UUID
                 supabase.table(t).delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
                 print(f"  - Table '{t}' successfully cleared (UUID ID).")
             except Exception as ex:
                 try:
-                    # Final fallback: table might not have an 'id' column, try another field or a non-existent name
                     supabase.table(t).delete().neq("name", "dummy_non_existent").execute()
                     print(f"  - Table '{t}' successfully cleared (non-ID fallback).")
                 except Exception as ex2:
                     print(f"  - Table '{t}' clear failed or empty: {ex2}")
 
-    # Try to clean optional 'users' table if it exists
     try:
         supabase.table("users").delete().gt("id", -1).execute()
         print("  - Table 'users' successfully cleared.")
     except Exception:
         pass
 
-    # --- 2. PREPARE & LOAD TEACHERS ---
     print("\nPreparing teachers data...")
     teachers_to_load = [
         {"id": 1, "name": "Dr. Amit Sharma", "department": "Computer Science"},
@@ -142,7 +131,6 @@ def main():
     ]
     batch_insert(supabase, "teachers", teachers_to_load, batch_size=200)
 
-    # --- 3. PREPARE & LOAD SUBJECTS ---
     print("\nPreparing subjects data...")
     subjects_to_load = [
         {"id": 1, "name": "Mathematics", "teacher_id": 1, "semester": 1},
@@ -154,7 +142,6 @@ def main():
     ]
     batch_insert(supabase, "subjects", subjects_to_load, batch_size=200)
 
-    # --- 4. PREPARE & LOAD STUDENTS ---
     print("\nPreparing 500 student profiles data...")
     students_to_load = []
     for _, row in df.iterrows():
@@ -175,17 +162,16 @@ def main():
         })
     batch_insert(supabase, "students", students_to_load, batch_size=200)
 
-    # --- 5. PREPARE & LOAD ATTENDANCE LOGS ---
     print("\nPreparing daily attendance logs (12,000 records)...")
     attendance_to_load = []
     dates = [datetime(2026, 5, 1) + timedelta(days=i) for i in range(24)]
     np.random.seed(42)
-    
+
     for _, row in df.iterrows():
         sid = int(row['student_id'])
         pct = float(row['attendance_pct']) / 100.0
         statuses = np.random.choice(['Present', 'Absent'], size=24, p=[pct, 1 - pct])
-        
+
         for d, status in zip(dates, statuses):
             attendance_to_load.append({
                 "student_id": sid,
@@ -194,16 +180,15 @@ def main():
             })
     batch_insert(supabase, "attendance", attendance_to_load, batch_size=200)
 
-    # --- 6. PREPARE & LOAD GRADES RECORDS ---
     print("\nPreparing course grades records (3,000 records)...")
     grades_to_load = []
-    
+
     subjects_list = ["Mathematics", "Physics", "Computer Science", "Data Structures", "AI", "Ethics"]
-    
+
     for _, row in df.iterrows():
         sid = int(row['student_id'])
         base_marks = float(row['internal_marks'])
-        
+
         for sub_name in subjects_list:
             score = int(np.clip(np.random.normal(base_marks, 8), 30, 100))
             grades_to_load.append({
@@ -213,12 +198,9 @@ def main():
             })
     batch_insert(supabase, "grades", grades_to_load, batch_size=200)
 
-    # --- 7. PREPARE & LOAD OPTIONAL USERS TABLE ---
     print("\nPreparing users table credentials...")
     users_to_load = []
-    # Hashed passwords (pre-validated and hashed at start of main)
-    
-    # Admin
+
     users_to_load.append({
         "id": 999,
         "username": "admin",
@@ -226,7 +208,6 @@ def main():
         "role": "Admin",
         "email": "admin@eduverse.ai"
     })
-    # Teacher
     users_to_load.append({
         "id": 998,
         "username": "teacher",
@@ -234,7 +215,6 @@ def main():
         "role": "Teacher",
         "email": "teacher@eduverse.ai"
     })
-    # 500 Students
     for _, row in df.iterrows():
         sid = int(row['student_id'])
         username = "student" if sid == 1 else row['name'].lower().replace(" ", "")
@@ -246,54 +226,53 @@ def main():
             "role": "Student",
             "email": email
         })
-        
+
     try:
         batch_insert(supabase, "users", users_to_load, batch_size=200)
     except Exception as e:
         print("\nNote: Table 'users' does not exist in the public schema cache of this Supabase project.")
         print("Skipping 'users' table migration. (Dashboard will safely fallback to local SQLite for authentication).")
 
-    # --- 8. VERIFY RUN METRICS ---
     print("\n====================================================")
     print("             MIGRATION RUN VERIFICATION             ")
     print("====================================================")
-    
+
     try:
         cnt_students = supabase.table("students").select("*", count="exact").limit(0).execute().count
         print(f"Table 'students' Count    : {cnt_students} / 500")
     except Exception as e:
         print(f"Table 'students' Count    : Error querying: {e}")
-        
+
     try:
         cnt_teachers = supabase.table("teachers").select("*", count="exact").limit(0).execute().count
         print(f"Table 'teachers' Count    : {cnt_teachers} / 5")
     except Exception as e:
         print(f"Table 'teachers' Count    : Error querying: {e}")
-        
+
     try:
         cnt_subjects = supabase.table("subjects").select("*", count="exact").limit(0).execute().count
         print(f"Table 'subjects' Count    : {cnt_subjects} / 6")
     except Exception as e:
         print(f"Table 'subjects' Count    : Error querying: {e}")
-        
+
     try:
         cnt_attendance = supabase.table("attendance").select("*", count="exact").limit(0).execute().count
         print(f"Table 'attendance' Count  : {cnt_attendance} / 12000")
     except Exception as e:
         print(f"Table 'attendance' Count  : Error querying: {e}")
-        
+
     try:
         cnt_marks = supabase.table("marks").select("*", count="exact").limit(0).execute().count
         print(f"Table 'marks' Count       : {cnt_marks} / 3000")
     except Exception as e:
         print(f"Table 'marks' Count       : Error querying: {e}")
-        
+
     try:
         cnt_users = supabase.table("users").select("*", count="exact").limit(0).execute().count
         print(f"Table 'users' Count       : {cnt_users}")
     except Exception:
         print(f"Table 'users' Count       : Table does not exist in Supabase (SQLite Fallback active)")
-        
+
     print("\nMigration script complete! Pushed 500 students and academic records to Supabase.")
     print("====================================================")
 

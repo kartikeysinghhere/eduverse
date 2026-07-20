@@ -5,12 +5,8 @@ from utils.ui import section_header
 @st.cache_data
 def get_how_it_works_chart():
     labels = ["User Login ", "Database (SQL) ", "AI Model (ML) ", "Dashboard "]
-    
-    # Source -> Target
-    # 0 (Login) -> 1 (DB)
-    # 1 (DB) -> 2 (AI)
-    # 2 (AI) -> 3 (Dashboard)
-    
+
+
     fig = go.Figure(data=[go.Sankey(
         node = dict(
           pad = 15,
@@ -26,7 +22,7 @@ def get_how_it_works_chart():
           color = "rgba(148, 163, 184, 0.2)"
         ))])
 
-    fig.update_layout(title_text="Data Flow Visualizer", font_size=12, 
+    fig.update_layout(title_text="Data Flow Visualizer", font_size=12,
                       paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                       font_color="#94a3b8")
     return fig
@@ -37,8 +33,8 @@ def show():
     st.markdown("""
         <div class="glass-card fade-in" style="margin-bottom: 2rem;">
             <p style="font-size: 1.2rem; color: #cbd5e1;">
-                EduVerse koi jaadu nahi, balki <b>Data Science</b> aur <b>AI</b> ka kamaal hai. 
-                Aaiye dekhte hain aapka data kaise travel karta hai! 
+                EduVerse koi jaadu nahi, balki <b>Data Science</b> aur <b>AI</b> ka kamaal hai.
+                Aaiye dekhte hain aapka data kaise travel karta hai!
             </p>
         </div>
     """, unsafe_allow_html=True)
@@ -48,7 +44,6 @@ def show():
 
     st.divider()
 
-    # Step by Step breakdown
     steps = [
         {
             "title": "Pehle aap login karte ho ",

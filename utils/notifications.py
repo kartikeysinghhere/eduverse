@@ -16,7 +16,6 @@ def show_notifications():
                 st.success(note["message"])
             else:
                 st.info(note["message"])
-        # Clear notifications after showing
         st.session_state.notifications = []
 
 def check_low_attendance(attendance_pct):

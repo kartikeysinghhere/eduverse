@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 from pathlib import Path
 from supabase import create_client
 
-# 1. Load .env
 ROOT = Path(__file__).resolve().parent
 load_dotenv(dotenv_path=ROOT / ".env")
 
@@ -13,7 +12,6 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
 def hash_password(password: str) -> str:
-    """Securely hashes passwords using bcrypt."""
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 def main():
@@ -21,7 +19,6 @@ def main():
         print("[-] Error: SUPABASE_URL or SUPABASE_KEY is missing in the environment.")
         return
 
-    # Read passwords from environment variables — never hardcode credentials
     admin_password = os.environ.get("EDUVERSE_ADMIN_PASSWORD")
     teacher_password = os.environ.get("EDUVERSE_TEACHER_PASSWORD")
 
@@ -67,7 +64,6 @@ def main():
         print(f"\n[*] Processing user: {username} ({role})...")
         password_hash = hash_password(password)
 
-        # Before inserting check if user already exists by username
         res = supabase.table("users").select("*").eq("username", username).execute()
         if res.data:
             existing_user = res.data[0]
@@ -92,13 +88,11 @@ def main():
                 supabase.table("users").insert(new_user).execute()
                 print(f"[+] Inserted user '{username}' with fixed ID {uid}.")
             except Exception as e:
-                # If fixed ID fails, let supabase auto-generate or insert without ID
                 print(f"[-] Insertion with ID {uid} failed ({e}). Retrying without manual ID...")
                 del new_user["id"]
                 supabase.table("users").insert(new_user).execute()
                 print(f"[+] Inserted user '{username}' with auto-generated ID.")
 
-    # Keep local SQLite in sync as well
     db_path = ROOT / "eduverse.db"
     if db_path.exists():
         import sqlite3

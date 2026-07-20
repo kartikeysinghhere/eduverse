@@ -8,15 +8,13 @@ import streamlit as st
 
 @st.cache_data
 def generate_student_data(n=50):
-    """Loads student data from sample_data.csv as the primary source."""
     from pathlib import Path
     ROOT = Path(__file__).resolve().parent.parent
     csv_path = str(ROOT / "data" / "sample_data.csv")
     if os.path.exists(csv_path):
         df = pd.read_csv(csv_path)
         return df
-    
-    # Fallback to synthetic if CSV missing
+
     np.random.seed(42)
     data = {
         'student_id': range(1, n + 1),
@@ -34,40 +32,34 @@ def generate_student_data(n=50):
 
 @st.cache_resource
 def train_predictive_models():
-    """Trains models on sample_data.csv with refreshed stats."""
     df = generate_student_data()
-    
-    # Ensure all required features exist for training
+
     features_list = ['attendance_pct', 'internal_marks', 'study_hours', 'prev_gpa', 'assignments_completed']
     X = df[features_list]
     y_gpa = df['final_gpa']
     y_risk = df['risk']
-    
-    # GPA Regressor
+
     gpa_model = RandomForestRegressor(n_estimators=100, random_state=42)
     gpa_model.fit(X, y_gpa)
-    
-    # Risk Classifier
+
     risk_model = RandomForestClassifier(n_estimators=100, random_state=42)
     risk_model.fit(X, y_risk)
-    
+
     return gpa_model, risk_model
 
 
 def get_student_predictions(attendance_pct, internal, study, prev_gpa, assignments):
-    """Returns (predicted_gpa, risk_label) for a student."""
     gpa_model, risk_model = train_predictive_models()
-    
-    input_data = pd.DataFrame([[attendance_pct, internal, study, prev_gpa, assignments]], 
+
+    input_data = pd.DataFrame([[attendance_pct, internal, study, prev_gpa, assignments]],
                               columns=['attendance_pct', 'internal_marks', 'study_hours', 'prev_gpa', 'assignments_completed'])
-    
+
     predicted_gpa = gpa_model.predict(input_data)[0]
-    predicted_risk = risk_model.predict_proba(input_data)[0][1] # Probability of risk
-    
+    predicted_risk = risk_model.predict_proba(input_data)[0][1]
+
     return round(predicted_gpa, 2), round(predicted_risk * 100, 2)
 
 def generate_subject_marks():
-    """Generates subject-wise marks for visualization."""
     subjects = ['Mathematics', 'Physics', 'Computer Science', 'Data Structures', 'AI', 'Ethics']
     marks = np.random.randint(60, 98, len(subjects))
     return pd.DataFrame({'Subject': subjects, 'Marks': marks})

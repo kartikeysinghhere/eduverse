@@ -9,7 +9,6 @@ import json
 from pathlib import Path
 import time
 
-# Resolve absolute root dynamically
 ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(dotenv_path=ROOT / ".env", override=True)
 
@@ -17,11 +16,9 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 DB_MODE = os.environ.get("DB_MODE", "supabase")
 
-# Whitelist of allowed table and column names to prevent SQL injection
 VALID_TABLES = {"users", "students", "grades", "marks", "attendance", "departments", "analytics_logs", "subjects", "teachers"}
 VALID_FILTER_COLUMNS = {"student_id", "user_id", "username", "email", "role", "department", "id"}
 
-# Initialize global tracking variables in system/module namespace
 if "APP_START_TIME" not in globals():
     globals()["APP_START_TIME"] = time.time()
 
@@ -60,28 +57,22 @@ def get_supabase_client() -> Client:
         raise ValueError("Supabase URL and Key must be set in environment variables.")
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Auth helper functions
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 
 
-# Internal cached fetcher with hashable arguments
 @st.cache_data(ttl=60)
 def _fetch_table_cached(table_name, filters_json, db_mode):
-    # Validate table name against whitelist to prevent SQL injection
     if table_name not in VALID_TABLES:
         raise ValueError(f"Invalid table name: '{table_name}'. Allowed tables: {VALID_TABLES}")
 
-    # Validate filter column names against whitelist
     if filters_json:
         filters = json.loads(filters_json)
         for k in filters.keys():
             if k not in VALID_FILTER_COLUMNS:
                 raise ValueError(f"Invalid filter column: '{k}'. Allowed columns: {VALID_FILTER_COLUMNS}")
 
-    # This represents a query invocation hitting the DB (uncached/expired)
-    # Return directly from Supabase or SQLite
     if db_mode == "supabase" and SUPABASE_URL and SUPABASE_KEY:
         try:
             supabase = get_supabase_client()
@@ -94,16 +85,15 @@ def _fetch_table_cached(table_name, filters_json, db_mode):
             return response.data
         except Exception as e:
             print(f"Supabase fetch failed for {table_name}: {e}. Trying local SQLite.")
-            
+
     try:
         conn = sqlite3.connect(str(ROOT / "eduverse.db"))
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
-        
-        # table_name and column names are validated against whitelists above
+
         query = f"SELECT * FROM {table_name}"
         params = []
-        
+
         if filters_json:
             filters = json.loads(filters_json)
             where_clauses = []
@@ -111,7 +101,7 @@ def _fetch_table_cached(table_name, filters_json, db_mode):
                 where_clauses.append(f"{k} = ?")
                 params.append(v)
             query += " WHERE " + " AND ".join(where_clauses)
-            
+
         cur.execute(query, params)
         rows = cur.fetchall()
         conn.close()
@@ -120,17 +110,13 @@ def _fetch_table_cached(table_name, filters_json, db_mode):
         print(f"SQLite fetch error for {table_name}: {e}")
         return []
 
-# Public interface for general data fetching
 def fetch_table(table_name, filters=None):
     increment_query_count()
-    # Convert filters to a JSON string to make them hashable for st.cache_data
     filters_json = json.dumps(filters, sort_keys=True) if filters else None
     return _fetch_table_cached(table_name, filters_json, DB_MODE)
 
-# Logging (Non-blocking background-style execution in case of Supabase offline)
 def log_action(user_id, action):
     increment_query_count()
-    # Write to local SQLite only if not in Supabase mode (avoids ephemeral filesystem issues in production)
     if DB_MODE != "supabase":
         try:
             conn = sqlite3.connect(str(ROOT / "eduverse.db"))
@@ -144,7 +130,6 @@ def log_action(user_id, action):
         except Exception as e:
             print(f"SQLite logging error: {e}")
 
-    # Write to Supabase asynchronously / with try-except to avoid blocking UI
     if DB_MODE == "supabase" and SUPABASE_URL and SUPABASE_KEY:
         increment_query_count()
         try:
@@ -159,3 +144,36 @@ def log_action(user_id, action):
 
 def seed_data():
     pass
+
+def insert_records(table_name, records):
+    increment_query_count()
+    if DB_MODE == "supabase" and SUPABASE_URL and SUPABASE_KEY:
+        try:
+            supabase = get_supabase_client()
+            supabase.table(table_name).insert(records).execute()
+            st.cache_data.clear()
+            return True
+        except Exception as e:
+            print(f"Supabase insert error for {table_name}: {e}")
+            return False
+    
+    try:
+        conn = sqlite3.connect(str(ROOT / "eduverse.db"))
+        cur = conn.cursor()
+        
+        if len(records) > 0:
+            keys = list(records[0].keys())
+            columns = ", ".join(keys)
+            placeholders = ", ".join(["?"] * len(keys))
+            query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
+            
+            data_tuples = [tuple(r[k] for k in keys) for r in records]
+            cur.executemany(query, data_tuples)
+            
+        conn.commit()
+        conn.close()
+        st.cache_data.clear()
+        return True
+    except Exception as e:
+        print(f"SQLite insert error for {table_name}: {e}")
+        return False

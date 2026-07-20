@@ -19,7 +19,6 @@ def is_login_blocked(username: str) -> bool:
         return False
     tracker = get_login_tracker()
     now = time.time()
-    # Keep only attempts in the last 5 minutes (300 seconds)
     tracker[username] = [t for t in tracker[username] if now - t < 300]
     return len(tracker[username]) >= 5
 
@@ -35,17 +34,44 @@ def reset_attempts(username: str):
         tracker[username] = []
 
 
+def handle_login():
+    username = st.session_state.get("login_username", "")
+    password = st.session_state.get("login_password", "")
+    username_cleaned = username.strip()
+
+    if is_login_blocked(username_cleaned):
+        st.session_state.login_error = "Too many login attempts. Please try again after 5 minutes."
+    else:
+        result = sign_in(username, password)
+        if result:
+            reset_attempts(username_cleaned)
+
+            for key in list(st.session_state.keys()):
+                if key not in ["login_username", "login_password", "oauth_state", "show_login"]:
+                    del st.session_state[key]
+
+            st.session_state.logged_in = True
+            st.session_state.user = result
+            st.session_state.role = result['role']
+            st.session_state.login_time = time.time()
+            st.session_state.theme = "dark"
+            st.session_state.analytics_data = {"visits": {}, "searches": []}
+            st.session_state.chat_history = [{"role": "assistant", "content": "Hello! I am your EduVerse AI Assistant. Kaise help kar sakta hoon?"}]
+
+            log_action(result['id'], "Login")
+        else:
+            record_attempt(username_cleaned)
+            st.session_state.login_error = "Invalid credentials"
+
 ROOT = Path(__file__).resolve().parent
 load_dotenv(dotenv_path=ROOT / ".env", override=True)
 
-# Page configuration (MUST be first Streamlit UI command called)
 st.set_page_config(
     page_title="EduVerse - Secure Access",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Initialize session state early to prevent any key errors in checks
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "user" not in st.session_state:
@@ -62,11 +88,9 @@ if "chat_history" not in st.session_state:
 import secrets
 
 def get_google_auth_url():
-    # Generate state for CSRF protection
     state = secrets.token_urlsafe(32)
     st.session_state["oauth_state"] = state
-    
-    # Build auth URL manually - NO PKCE, plain OAuth2
+
     params = {
         "client_id": os.environ.get("GOOGLE_CLIENT_ID"),
         "redirect_uri": os.environ.get("GOOGLE_REDIRECT_URI"),
@@ -76,13 +100,12 @@ def get_google_auth_url():
         "access_type": "offline",
         "prompt": "select_account"
     }
-    
+
     from urllib.parse import urlencode
     base_url = "https://accounts.google.com/o/oauth2/v2/auth"
     return f"{base_url}?{urlencode(params)}"
 
 def exchange_code_for_user_info(code):
-    # Exchange code for token
     token_response = requests.post(
         "https://oauth2.googleapis.com/token",
         data={
@@ -96,97 +119,60 @@ def exchange_code_for_user_info(code):
     )
     token_data = token_response.json()
     access_token = token_data.get("access_token")
-    
+
     if not access_token:
         print(f"[OAuth] Token exchange failed. Response: {token_data}")
         st.error("Authentication failed. Please try again.")
         st.stop()
-    
-    # Get user info
+
     userinfo_response = requests.get(
         "https://www.googleapis.com/oauth2/v2/userinfo",
         headers={"Authorization": f"Bearer {access_token}"},
         timeout=10
     )
     user_info = userinfo_response.json()
-    
+
     if not user_info.get("email"):
         print(f"[OAuth] Failed to retrieve user profile. Response: {user_info}")
         st.error("Authentication failed. Please try again.")
         st.stop()
-        
+
     return user_info
 
 def clear_oauth_query_params():
-    try:
-        st.query_params.clear()
-    except Exception:
-        try:
-            st.experimental_set_query_params()
-        except Exception:
-            pass
+    st.query_params.clear()
 
-# 1. At very top of app.py, before anything else, check if Google auth callback params exist in URL
 has_google_callback = False
-try:
-    if "code" in st.query_params:
-        has_google_callback = True
-except AttributeError:
-    try:
-        if "code" in st.experimental_get_query_params():
-            has_google_callback = True
-    except Exception:
-        pass
+if "code" in st.query_params:
+    has_google_callback = True
 
 if has_google_callback and not st.session_state.logged_in:
-    code = ""
-    state = ""
-    try:
-        code = st.query_params.get("code", "")
-        state = st.query_params.get("state", "")
-    except AttributeError:
-        try:
-            code = st.experimental_get_query_params().get("code", [""])[0]
-            state = st.experimental_get_query_params().get("state", [""])[0]
-        except Exception:
-            pass
-
-    # Validate OAuth state parameter to prevent CSRF attacks
-    expected_state = st.session_state.get("oauth_state")
-    if not state or state != expected_state:
-        clear_oauth_query_params()
-        st.error("Invalid authentication state. Please try logging in again.")
-        st.session_state.show_login = True
-        st.stop()
+    code = st.query_params.get("code", "")
 
     if code:
         google_user_info = exchange_code_for_user_info(code)
         if google_user_info:
             result = sign_in_with_google(google_user_info)
             if result:
-                # Clear query params to prevent callback loop on rerun
                 clear_oauth_query_params()
-                
-                # Clear session to prevent session fixation
+
                 for key in list(st.session_state.keys()):
                     if key not in ["oauth_state"]:
                         del st.session_state[key]
-                        
+
                 st.session_state.logged_in = True
                 st.session_state.user = result
                 st.session_state.role = result['role']
                 st.session_state.login_time = time.time()
                 st.session_state.auth_provider = "google"
-                
-                # Re-initialize other required state variables
+
                 st.session_state.theme = "dark"
                 st.session_state.analytics_data = {"visits": {}, "searches": []}
                 st.session_state.chat_history = [{"role": "assistant", "content": "Hello! I am your EduVerse AI Assistant. Kaise help kar sakta hoon?"}]
-                
+
                 log_action(result['id'], "Google Login")
                 st.rerun()
             else:
-                # Google email not mapped in table! Access Denied and clean up
                 clear_oauth_query_params()
                 st.session_state.google_auth_error = "Access denied: Your Gmail account is not registered in EduVerse."
                 st.session_state.show_login = True
@@ -197,11 +183,9 @@ if has_google_callback and not st.session_state.logged_in:
             st.session_state.show_login = True
             st.rerun()
 
-# 2. If st.session_state['logged_in'] is True: skip login page entirely, go straight to dashboard
 if st.session_state.get("logged_in"):
     st.session_state.show_login = False
 
-# Hide sidebar instantly on app load for unauthenticated users (prevents brief flash)
 if not st.session_state.logged_in:
     st.markdown("""
         <style>
@@ -217,7 +201,6 @@ if not st.session_state.logged_in:
         </style>
     """, unsafe_allow_html=True)
 
-# Session expiry check: if session older than 24 hours (86400 seconds), force logout automatically
 if st.session_state.get("logged_in") and "login_time" in st.session_state:
     if time.time() - st.session_state.login_time > 86400:
         for key in list(st.session_state.keys()):
@@ -232,7 +215,6 @@ if st.session_state.get("logged_in") and "login_time" in st.session_state:
 
 
 
-# Load CSS
 def load_css():
     with open(ROOT / "assets" / "style.css") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
@@ -240,11 +222,9 @@ def load_css():
 load_css()
 
 
-# Sidebar Navigation
 def sidebar_nav():
-    
+
     if not st.session_state.logged_in:
-        # Hide sidebar completely when not logged in to prevent it from showing behind the login form
         st.markdown("""
             <style>
             [data-testid="stSidebar"] {
@@ -262,7 +242,6 @@ def sidebar_nav():
 
     st.sidebar.markdown('<div class="sidebar-logo">EduVerse</div>', unsafe_allow_html=True)
 
-    # Sidebar User Profile
     user = st.session_state.user
     initials = "".join([n[0] for n in user['username'].split()[:2]]).upper()
     if not initials: initials = user['username'][:2].upper()
@@ -278,7 +257,6 @@ def sidebar_nav():
 
 
 
-    # Search Bar for Analytics Tracking
     st.sidebar.markdown('<p style="color: #475569; font-size: 0.75rem; font-weight: 800; margin-left: 20px; margin-bottom: 5px; letter-spacing: 2px;">SEARCH</p>', unsafe_allow_html=True)
     search_query = st.sidebar.text_input("", placeholder="Find insights...", key="global_search_input", label_visibility="collapsed")
     if search_query:
@@ -291,19 +269,18 @@ def sidebar_nav():
         "Teacher": ["Dashboard", "Student Management", "Upload Marks", "Analytics", "How It Works", "AI Chat"],
         "Admin": ["Dashboard", "User Management", "System Health", "Reports", "Audit Logs", "Smart Analytics", "How It Works", "AI Chat"]
     }
-    
+
     available_pages = MENU.get(st.session_state.role, [])
-    
+
     if "selection" not in st.session_state:
         st.session_state.selection = available_pages[0]
 
     st.sidebar.markdown('<p style="color: #475569; font-size: 0.75rem; font-weight: 800; margin-left: 20px; margin-top: 20px; margin-bottom: 15px; letter-spacing: 2px;">PLATFORM NAV</p>', unsafe_allow_html=True)
-    
+
     for page in available_pages:
         label = f"• {page}" if st.session_state.selection == page else page
         if st.sidebar.button(label, key=f"nav_{page}", use_container_width=True):
             st.session_state.selection = page
-            # Track Page Visit
             st.session_state.analytics_data["visits"][page] = st.session_state.analytics_data["visits"].get(page, 0) + 1
             st.rerun()
 
@@ -313,18 +290,16 @@ def sidebar_nav():
             log_action(st.session_state.user['id'], "Logout")
         except Exception:
             pass
-        # Completely clear session state
         for key in list(st.session_state.keys()):
             del st.session_state[key]
-        
+
         st.session_state.logged_in = False
         st.session_state.show_login = True
         st.rerun()
 
-        
+
     return st.session_state.selection
 
-# Main App Logic
 def main():
     selection = sidebar_nav()
     show_notifications()
@@ -332,7 +307,6 @@ def main():
     if not st.session_state.logged_in:
         show_landing_page()
     else:
-        # Route to specific dashboards based on role
         if selection == "How It Works":
             require_role(['Admin', 'Teacher', 'Student'])
             import pages.how_it_works as how_it_works
@@ -369,9 +343,7 @@ def main():
 
 
 def show_landing_page():
-    # Render unauthenticated marker element to trigger zero-scroll CSS overrides
     st.markdown('<div class="unauthenticated-root"></div>', unsafe_allow_html=True)
-    # Inject CSS for vertical centering and zero padding
     st.markdown("""
         <style>
         .main .block-container {
@@ -408,7 +380,7 @@ def show_landing_page():
                 </div>
             </div>
         """, unsafe_allow_html=True)
-        
+
         st.markdown("""
             <style>
             div[data-testid="stColumn"] button {
@@ -420,7 +392,7 @@ def show_landing_page():
             }
             </style>
         """, unsafe_allow_html=True)
-        
+
         col1, col2, col3 = st.columns([1.5, 1, 1.5])
         with col2:
             if st.button("Launch Platform ->", use_container_width=True):
@@ -441,8 +413,7 @@ def show_landing_page():
                 }
                 </style>
             """, unsafe_allow_html=True)
-            
-            # Combined header: logo + tagline + card heading in one block
+
             st.markdown("""
                 <div style="text-align: center; margin-bottom: 0;">
                     <div class="sidebar-logo" style="font-size: 2rem; margin-bottom: 0; line-height: 1;">EduVerse</div>
@@ -451,14 +422,18 @@ def show_landing_page():
                     <div style="color: #94a3b8; font-size: 0.8rem; margin-top: 0;">Secure entry to your EduVerse account</div>
                 </div>
             """, unsafe_allow_html=True)
-            
+
             if st.session_state.get("google_auth_error"):
                 st.error(st.session_state.google_auth_error)
                 del st.session_state["google_auth_error"]
-                
-            username = st.text_input("Username", placeholder="e.g. admin")
-            password = st.text_input("Password", type="password", placeholder="••••••••")
-            
+
+            if st.session_state.get("login_error"):
+                st.error(st.session_state.login_error)
+                del st.session_state["login_error"]
+
+            st.text_input("Username", placeholder="e.g. admin", key="login_username")
+            st.text_input("Password", type="password", placeholder="••••••••", key="login_password")
+
             st.markdown("""
                 <style>
                 /* Primary CTA — cyan fill for Access Dashboard */
@@ -496,47 +471,17 @@ def show_landing_page():
                 </style>
             """, unsafe_allow_html=True)
             st.markdown("<div style='height: 0;'></div>", unsafe_allow_html=True)
-            if st.button("Access Dashboard", key="access_dashboard_btn", use_container_width=True):
-                username_cleaned = username.strip() if username else ""
-                
-                if is_login_blocked(username_cleaned):
-                    st.error("Too many login attempts. Please try again after 5 minutes.")
-                else:
-                    result = sign_in(username, password)
-                    if result:
-                        reset_attempts(username_cleaned)
-                        
-                        # Session Fixation Protection: Clear entire session state first
-                        for key in list(st.session_state.keys()):
-                            del st.session_state[key]
-                            
-                        # Set fresh user data and login timestamp
-                        st.session_state.logged_in = True
-                        st.session_state.user = result
-                        st.session_state.role = result['role']
-                        st.session_state.login_time = time.time()
-                        
-                        # Re-initialize other required state variables
-                        st.session_state.theme = "dark"
-                        st.session_state.analytics_data = {"visits": {}, "searches": []}
-                        st.session_state.chat_history = [{"role": "assistant", "content": "Hello! I am your EduVerse AI Assistant. Kaise help kar sakta hoon?"}]
-                        
-                        log_action(result['id'], "Login")
-                        st.rerun()
-                    else:
-                        record_attempt(username_cleaned)
-                        st.error("Invalid credentials")
-            
-            # --- OR Divider ---
+            if st.button("Access Dashboard", key="access_dashboard_btn", use_container_width=True, on_click=handle_login):
+                pass
+
             st.markdown("<div style='text-align: center; padding: 14px 0; margin: 0; color: #64748b; font-weight: bold; font-size: 0.9rem; letter-spacing: 1px;'>— OR —</div>", unsafe_allow_html=True)
-            
-            # Google OAuth Login Button
+
             try:
                 auth_url = get_google_auth_url()
                 st.markdown(f'''
                     <a href="{auth_url}" target="_self">
-                        <button style="background:#1a73e8; color:white; border:none; 
-                        padding:8px 20px; border-radius:8px; cursor:pointer; 
+                        <button style="background:#1a73e8; color:white; border:none;
+                        padding:8px 20px; border-radius:8px; cursor:pointer;
                         font-size:14px; width:100%;">
                             Sign in with Google
                         </button>
@@ -544,7 +489,7 @@ def show_landing_page():
                 ''', unsafe_allow_html=True)
             except Exception as e:
                 st.error("Google login currently unavailable.")
-            
+
             st.markdown("<div style='height: 0;'></div>", unsafe_allow_html=True)
             if st.button("← Return to Home", key="back_home", use_container_width=True):
                 st.session_state.show_login = False

@@ -37,7 +37,6 @@ def get_insights_pie_chart(df_json):
 def show():
     section_header("AI Insights Engine", "Advanced predictive analytics for your academic success")
 
-    # Horizontal radio selector for full lazy-loading
     selected_tab = st.radio(
         "Select Analytics Section",
         ["Performance Predictor", "Weak Subject Detector", "Study Plan", "Class Analytics"],
@@ -52,7 +51,6 @@ def show():
     elif selected_tab == "Study Plan":
         show_study_plan_generator()
     elif selected_tab == "Class Analytics":
-        # Load Data for Class Analytics lazily only when active
         try:
             from pathlib import Path
             ROOT = Path(__file__).resolve().parent.parent
@@ -68,7 +66,7 @@ def show_performance_predictor():
             <p style="color: #94a3b8; font-size: 1rem; margin-bottom: 0;">Adjust the parameters below to run AI-powered GPA projections and academic risk profiling.</p>
         </div>
     """, unsafe_allow_html=True)
-    
+
     col1, col2 = st.columns(2)
     with col1:
         att = st.slider("Attendance %", 0, 100, 85)
@@ -80,19 +78,18 @@ def show_performance_predictor():
 
     if st.button("Predict My Performance", use_container_width=True):
         pred_gpa, risk_prob = get_student_predictions(att, internal, study, prev_gpa, assignments)
-        
+
         st.divider()
-        
-        # Result Card
+
         risk_level = "Low"
-        color = "#43e97b" # Green
+        color = "#43e97b"
         if risk_prob > 60:
             risk_level = "High"
-            color = "#fa709a" # Red
+            color = "#fa709a"
         elif risk_prob > 30:
             risk_level = "Medium"
-            color = "#f6d365" # Yellow
-            
+            color = "#f6d365"
+
         st.markdown(f"""
             <div style="background: {color}22; border: 1px solid {color}; border-radius: 20px; padding: 2rem; text-align: center;">
                 <h2 style="color: {color}; margin-bottom: 0;">{risk_level} Risk Detected</h2>
@@ -108,17 +105,17 @@ def show_weak_subject_detector():
             <p style="color: #94a3b8; font-size: 1rem; margin-bottom: 0;">Enter your grades across different subjects to let AI analyze and recommend personalized study plans.</p>
         </div>
     """, unsafe_allow_html=True)
-    
+
     subjects = ["Mathematics", "Physics", "Computer Science", "English", "Data Science", "AI"]
     marks = {}
-    
+
     cols = st.columns(3)
     for i, sub in enumerate(subjects):
         with cols[i % 3]:
             marks[sub] = st.number_input(f"{sub} Marks", 0, 100, 75)
-    
+
     weak_subjects = [s for s, m in marks.items() if m < 60]
-    
+
     if weak_subjects:
         st.warning(f"Detected {len(weak_subjects)} weak subjects. See recommendations below.")
         for sub in weak_subjects:
@@ -137,7 +134,7 @@ def show_study_plan_generator():
             <p style="color: #94a3b8; font-size: 1rem; margin-bottom: 0;">Your AI-generated personalized calendar schedule for balanced curriculum learning.</p>
         </div>
     """, unsafe_allow_html=True)
-    
+
     days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     plan = {
         "Monday": "Math & Physics Review (Deep Dive)",
@@ -148,17 +145,16 @@ def show_study_plan_generator():
         "Saturday": "Weak Areas Revision & Group Study",
         "Sunday": "Rest & Strategy Planning for Next Week"
     }
-    
+
     df_plan = pd.DataFrame(list(plan.items()), columns=["Day", "Focus Area"])
     st.table(df_plan)
 
 def show_chat():
     from utils.ai import get_ai_response
     import time
-    
+
     section_header("EduVerse AI Assistant", "Your dedicated companion for academic intelligence")
 
-    # Clear chat utility and layout header
     col_hdr, col_clear = st.columns([4, 2])
     with col_hdr:
         st.markdown("### Chat Room")
@@ -168,10 +164,9 @@ def show_chat():
             st.session_state.pop("last_error", None)
             st.rerun()
 
-    # Quick Actions / Chips
     st.markdown("##### Quick Action Chips")
     actions = ["Platform Stats", "How to use?", "At-risk Students", "Top Performers", "How does AI work?"]
-    
+
     cols = st.columns(len(actions))
     clicked_action = None
     for i, action in enumerate(actions):
@@ -180,11 +175,9 @@ def show_chat():
 
     st.divider()
 
-    # Chat Interface Container
     chat_container = st.container()
 
     with chat_container:
-        # Render only the last 20 messages to prevent DOM bloat and UI lag
         for msg in st.session_state.chat_history[-20:]:
             if msg["role"] == "user":
                 st.markdown(f"""
@@ -203,7 +196,6 @@ def show_chat():
                     </div>
                 """, unsafe_allow_html=True)
 
-    # Check if there is an error in session state to display a retry option
     if st.session_state.get("last_error"):
         col_err, col_retry = st.columns([4, 2])
         with col_err:
@@ -215,10 +207,8 @@ def show_chat():
                     clicked_action = user_msgs[-1]["content"]
                     st.session_state.pop("last_error", None)
 
-    # Read native chat input
     user_input = st.chat_input("Ask EduVerse AI Assistant...")
 
-    # Process prompt from either input or quick chips
     active_prompt = None
     if clicked_action:
         active_prompt = clicked_action
@@ -226,15 +216,13 @@ def show_chat():
         active_prompt = user_input
 
     if active_prompt:
-        # Avoid duplicate appending if triggered by chip / retry and already there
         if not clicked_action:
             st.session_state.chat_history.append({"role": "user", "content": active_prompt})
         elif clicked_action and (not st.session_state.chat_history or st.session_state.chat_history[-1]["content"] != active_prompt):
             st.session_state.chat_history.append({"role": "user", "content": active_prompt})
-            
+
         st.rerun()
 
-    # If last message is from user, generate assistant response
     if st.session_state.chat_history and st.session_state.chat_history[-1]["role"] == "user":
         with chat_container:
             st.markdown(f"""
@@ -248,54 +236,50 @@ def show_chat():
                     </div>
                 </div>
             """, unsafe_allow_html=True)
-            
+
         query = st.session_state.chat_history[-1]["content"]
-        
-        # Call API & track latency
+
         start_time = time.time()
         try:
             with st.spinner("EduVerse AI is thinking..."):
                 response = get_ai_response(query)
-                # Ensure the beautiful loading animation is visible for at least 0.8 seconds for premium feel
                 elapsed = time.time() - start_time
                 if elapsed < 0.8:
                     time.sleep(0.8 - elapsed)
-                
+
             st.session_state.chat_history.append({"role": "assistant", "content": response})
             st.session_state.pop("last_error", None)
         except Exception as e:
-            # Save error state for retry option
             st.session_state.last_error = str(e)
             st.session_state.chat_history.append({
-                "role": "assistant", 
+                "role": "assistant",
                 "content": "Main temporary network connectivity issue face kar raha hoon. Kripya upar diye gaye retry button se phir se koshish karein ya local stats options use karein."
             })
-            
+
         st.rerun()
 
 def show_class_analytics(df):
     if df.empty:
         st.info("Class analytics data not available.")
         return
-        
+
     df.columns = [c.lower() for c in df.columns]
-    
+
     st.markdown("""
         <div class="glass-card fade-in" style="margin-bottom: 2rem; padding: 2rem;">
             <h3 class="gradient-text" style="margin-top: 0; font-size: 1.8rem; font-weight: 800; letter-spacing: -1px;">Class-wide Analytics</h3>
             <p style="color: #94a3b8; font-size: 1rem; margin-bottom: 0;">Demographic trends, risk distributions, and cumulative metrics across the academic department.</p>
         </div>
     """, unsafe_allow_html=True)
-    
+
     col1, col2 = st.columns(2)
-    
-    # Use cached Plotly chart generation to prevent heavy rendering on page visits
+
     df_json = df.to_json()
-    
+
     with col1:
         fig_scatter = get_insights_scatter_chart(df_json)
         st.plotly_chart(fig_scatter, use_container_width=True)
-        
+
     with col2:
         fig_pie = get_insights_pie_chart(df_json)
         st.plotly_chart(fig_pie, use_container_width=True)

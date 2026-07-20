@@ -16,7 +16,7 @@ def get_student_grades_chart(df_marks_json):
     from io import StringIO
     df_marks = pd.read_json(StringIO(df_marks_json))
     colors = ['#00f2fe', '#4facfe', '#43e97b', '#fa709a', '#f093fb', '#ffd700']
-    fig = px.bar(df_marks, x='Subject', y='Marks', 
+    fig = px.bar(df_marks, x='Subject', y='Marks',
                  color='Subject',
                  color_discrete_sequence=colors,
                  labels={'Subject': 'Course', 'Marks': 'Grade'})
@@ -36,7 +36,7 @@ def get_student_attendance_chart(weekly_stats_json):
 
 def show(selection):
     st.markdown('<div class="fade-in">', unsafe_allow_html=True)
-    
+
     if selection == "Dashboard":
         show_main_dashboard()
     elif selection == "My Grades":
@@ -45,13 +45,12 @@ def show(selection):
         show_attendance()
     elif selection == "AI Insights":
         show_ai_insights()
-        
+
     st.markdown('</div>', unsafe_allow_html=True)
 
 def show_main_dashboard():
     section_header("Student Insights", "Real-time track of your academic journey")
-    
-    # Fetch real student record
+
     student_id = st.session_state.user['id']
     try:
         student_records = fetch_table("students", filters={"student_id": student_id})
@@ -69,22 +68,24 @@ def show_main_dashboard():
             "assignments_completed": 12,
             "internal_marks": 85
         }
-        
-    # Dynamically compute rank
+
     try:
         all_students = fetch_table("students")
         df_all = pd.DataFrame(all_students)
         df_all.columns = [c.lower() for c in df_all.columns]
         df_all = df_all.sort_values("final_gpa", ascending=False).reset_index(drop=True)
-        rank = df_all[df_all['student_id'] == student_id].index[0] + 1
-        rank_str = f"{rank}/{len(df_all)}"
+        student_row = df_all[df_all['student_id'] == student_id]
+        if not student_row.empty:
+            rank = student_row.index[0] + 1
+            rank_str = f"{rank}/{len(df_all)}"
+        else:
+            rank_str = "N/A"
     except Exception:
         rank_str = "12/50"
-        
+
     col_main, col_side = st.columns([3, 1])
-    
+
     with col_side:
-        # Exam Countdown
         st.markdown("""
             <div class="glass-card fade-in" style="padding: 1.5rem; margin-bottom: 1.5rem;">
                 <h4 style="margin-top: 0; margin-bottom: 10px;"> Exam Countdown</h4>
@@ -94,25 +95,22 @@ def show_main_dashboard():
         days_left = (exam_date - pd.to_datetime('today').date()).days
         st.write(f"### {days_left} Days Left")
         st.progress(max(0, min(100, (30-days_left)*100//30)))
-        
+
         st.markdown("<br>", unsafe_allow_html=True)
-        # Achievement Badges
         st.subheader(" Badges")
         badges = [" 10 Day Streak", " Top Scorer", " Perfect Attendance"]
         for b in badges:
             st.info(b)
 
     with col_main:
-        # Key Metrics (Real data-driven values)
         metrics = [
             {"label": "Current CGPA", "value": f"{student['final_gpa']:.2f}", "trend": f"{'+' if student['final_gpa'] >= student['prev_gpa'] else ''}{student['final_gpa'] - student['prev_gpa']:.2f}"},
             {"label": "Attendance", "value": f"{int(student['attendance_pct'])}%", "trend": "+1.5%"},
             {"label": "Rank", "value": rank_str, "trend": "Stable"}
         ]
         metric_row(metrics)
-        
+
         st.markdown("<br>", unsafe_allow_html=True)
-        # Leaderboard (Top 5 from real data)
         st.markdown("""
             <div class="glass-card fade-in" style="padding: 2rem; margin-bottom: 2rem;">
                 <h3 class="gradient-text" style="margin-top: 0; font-size: 1.8rem; font-weight: 800; letter-spacing: -1px;"> Leaderboard (Top 5)</h3>
@@ -128,7 +126,6 @@ def show_main_dashboard():
             })
         st.table(top_5_data)
 
-        # PDF Export with Real Data
         if st.button("Generate Performance Report (PDF)", use_container_width=True):
             pdf = FPDF()
             pdf.add_page()
@@ -143,21 +140,19 @@ def show_main_dashboard():
             pdf.cell(200, 10, text=f"Assignments Completed: {student.get('assignments_completed', 0)}/20", new_x="LMARGIN", new_y="NEXT")
             pdf.cell(200, 10, text=f"Status: {'Good Standing' if student.get('risk', 0) == 0 else 'At Academic Risk'}", new_x="LMARGIN", new_y="NEXT")
             pdf.cell(200, 10, text=f"Report Generated At: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", new_x="LMARGIN", new_y="NEXT")
-            
-            # bytes(pdf.output()) is clean and correct for fpdf2 to yield binary bytes directly
+
             pdf_output = bytes(pdf.output())
-            st.download_button(label="Click to Download PDF", 
-                               data=pdf_output, 
-                               file_name=f"{student.get('name', 'Student').replace(' ', '_')}_report.pdf", 
+            st.download_button(label="Click to Download PDF",
+                               data=pdf_output,
+                               file_name=f"{student.get('name', 'Student').replace(' ', '_')}_report.pdf",
                                mime="application/pdf",
                                use_container_width=True)
 
 def show_grades():
     section_header("Subject-wise Performance", "Detailed breakdown of your grades")
-    
+
     student_id = st.session_state.user['id']
-    
-    # ISSUE 1 - Cache marks in session state per student to prevent regeneration on rerun
+
     if "student_marks" not in st.session_state or st.session_state.get("student_marks_user_id") != student_id:
         data = []
         try:
@@ -167,21 +162,19 @@ def show_grades():
                 data = fetch_table("marks", filters={"student_id": student_id})
             except Exception:
                 pass
-                
+
         if data:
             df_marks = pd.DataFrame(data)
         else:
-            # Generate random marks once and save to DB
             df_marks = generate_subject_marks()
             df_marks['student_id'] = student_id
-            
-            # Save to Database (Supabase or local SQLite fallback depending on DB_MODE)
+
             from utils.db import DB_MODE
             if DB_MODE == "supabase":
                 try:
                     from utils.db import get_supabase_client
                     supabase = get_supabase_client()
-                    
+
                     records = []
                     for _, row in df_marks.iterrows():
                         records.append({
@@ -220,79 +213,70 @@ def show_grades():
                     conn.close()
                 except Exception as sqlite_err:
                     print(f"Error saving generated marks to SQLite: {sqlite_err}")
-                    
+
         st.session_state.student_marks = df_marks
         st.session_state.student_marks_user_id = student_id
     else:
         df_marks = st.session_state.student_marks
-    
-    # Standardize column names dynamically to match what Plotly expect (Subject, Marks)
+
     cols = {c.lower(): c for c in df_marks.columns}
     if 'subject' in cols:
         df_marks = df_marks.rename(columns={cols['subject']: 'Subject'})
     if 'marks' in cols:
         df_marks = df_marks.rename(columns={cols['marks']: 'Marks'})
-        
+
     df_marks_json = df_marks.to_json()
     fig = get_student_grades_chart(df_marks_json)
     st.plotly_chart(fig, use_container_width=True)
-    
-    # Render table beautifully without index
+
     st.dataframe(df_marks[['Subject', 'Marks']], use_container_width=True, hide_index=True)
 
 def show_attendance():
     section_header("Attendance Analysis", "Track your presence across all courses")
-    
+
     student_id = st.session_state.user['id']
     data = []
     try:
         data = fetch_table("attendance", filters={"student_id": student_id})
     except Exception:
         pass
-        
+
     if not data:
-        # Mock data for daily attendance for past 30 days
         dates = pd.date_range(end=pd.Timestamp.now(), periods=30)
         status = np.random.choice(['Present', 'Absent'], size=30, p=[0.92, 0.08])
         df_att = pd.DataFrame({'date': dates, 'status': status})
     else:
         df_att = pd.DataFrame(data)
-        
-    # Standardize column names to lowercase to avoid case mismatches
+
     df_att.columns = [c.lower() for c in df_att.columns]
     df_att['date'] = pd.to_datetime(df_att['date'])
-    
-    # Clean status string values
+
     df_att['status'] = df_att['status'].astype(str).str.strip().str.capitalize()
-    
-    # Calculate stats
+
     total_present = len(df_att[df_att['status'] == 'Present'])
     total_absent = len(df_att[df_att['status'] == 'Absent'])
     total_days = len(df_att)
     attendance_pct = (total_present / total_days * 100) if total_days > 0 else 0.0
-    
-    # Renders a row of premium metric cards
+
     metrics = [
         {"label": "Total Present", "value": f"{total_present} Days"},
         {"label": "Total Absent", "value": f"{total_absent} Days"},
         {"label": "Attendance Rate", "value": f"{attendance_pct:.1f}%"}
     ]
     metric_row(metrics)
-    
+
     st.markdown("<br>", unsafe_allow_html=True)
-    
-    # Clean bar chart showing weekly attendance rate
+
     df_att['Week'] = df_att['date'].dt.to_period('W').apply(lambda r: r.start_time.strftime('%b %d'))
     weekly_stats = df_att.groupby('Week').apply(
         lambda x: (x['status'] == 'Present').sum() / len(x) * 100
     ).reset_index()
     weekly_stats.columns = ['Week Starting', 'Attendance Rate %']
-    
+
     weekly_stats_json = weekly_stats.to_json()
     fig = get_student_attendance_chart(weekly_stats_json)
     st.plotly_chart(fig, use_container_width=True)
-    
-    # Calendar Heatmap / Grid Visual Log
+
     st.markdown("###  Daily Attendance Badges")
     timeline_html = "<div style='display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;'>"
     for _, row in df_att.sort_values('date').iterrows():
@@ -306,8 +290,7 @@ def show_attendance():
 
 def show_ai_insights():
     section_header("AI Performance Predictions", "Predictive modeling for your future grades")
-    
-    # Fetch real student record for slider defaults
+
     student_id = st.session_state.user['id']
     try:
         student_records = fetch_table("students", filters={"student_id": student_id})
@@ -322,9 +305,9 @@ def show_ai_insights():
             "prev_gpa": 3.8,
             "assignments_completed": 12
         }
-        
+
     col1, col2 = st.columns([1, 1])
-    
+
     with col1:
         st.subheader("Simulate Your Performance")
         att = st.slider("Attendance %", 50, 100, int(student['attendance_pct']))
@@ -332,7 +315,7 @@ def show_ai_insights():
         study = st.slider("Daily Study Hours", 1, 12, 5)
         prev = st.slider("Previous GPA", 2.0, 4.0, float(student['prev_gpa']))
         assign = st.slider("Assignments Completed", 0, 20, int(student['assignments_completed']))
-        
+
         if st.button("Predict My Final GPA"):
             pred_gpa, risk = get_student_predictions(att, internal, study, prev, assign)
             st.session_state.pred_gpa = pred_gpa
@@ -347,7 +330,7 @@ def show_ai_insights():
                     <div style="font-size: 1.2rem; color: #cbd5e1; margin-bottom: 5px;">Risk Level: <b>{st.session_state.pred_risk}%</b></div>
                 </div>
             """, unsafe_allow_html=True)
-            
+
             if st.session_state.pred_risk > 30:
                 st.warning(" High Risk detected. AI recommends increasing study hours and attending more sessions.")
             else:

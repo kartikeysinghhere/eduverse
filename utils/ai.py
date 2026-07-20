@@ -5,7 +5,6 @@ import logging
 import time
 import streamlit as st
 
-# Configure logging to console
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("EduVerseAI")
 
@@ -18,7 +17,7 @@ if "LATEST_MODEL_USED" not in globals():
 def get_average_inference_time() -> float:
     times = globals().get("AI_INFERENCE_TIMES", [])
     if not times:
-        return 0.8  # Default baseline
+        return 0.8
     return sum(times) / len(times)
 
 def get_ai_model_name() -> str:
@@ -30,22 +29,16 @@ def get_cached_groq_client(api_key):
     return Groq(api_key=api_key)
 
 def get_ai_response(prompt):
-    """
-    Generates a conversational response for the EduVerse AI Assistant.
-    Tries to use Groq API with Llama models. Falls back to a robust rule-based
-    and data-driven search engine if API is offline, keys are missing, or errors occur.
-    """
     logger.info(f"Received prompt: {prompt}")
-    
+
     start_time = time.perf_counter()
-    
+
     def record_stats(res_text, model):
         elapsed = time.perf_counter() - start_time
         globals().setdefault("AI_INFERENCE_TIMES", []).append(elapsed)
         globals()["LATEST_MODEL_USED"] = model
         return res_text
 
-    # 1. Load Real Data for dynamic queries (cached to avoid repeated disk reads)
     try:
         from utils.ml import generate_student_data
         df = generate_student_data()
@@ -62,22 +55,19 @@ def get_ai_response(prompt):
         at_risk_count = 25
         top_5_str = "Riya Rao (4.00), Siddharth Mukherjee (4.00), Priya Kumar (4.00), Tanvi Kumar (4.00), Kavya Verma (4.00)"
 
-    # 2. Rule-based / Data-driven Fallback Engine (Runs if prompt matches or if API fails)
     lower_prompt = prompt.lower()
     fallback_response = None
-    
-    # Handle greeting
+
     if any(greet in lower_prompt for greet in ["hello", "hi", "hey", "hola", "namaste", "kaise ho"]):
         fallback_response = "Hello! Main aapka EduVerse AI Assistant hoon. Aaj aapki academic performance aur insights mein kaise help kar sakta hoon? "
-    
-    # Check for specific student searches
+
     elif df is not None and not df.empty and ("student" in lower_prompt or "records" in lower_prompt or any(name.lower() in lower_prompt for name in df["name"].unique())):
         matched_student = None
         for name in df["name"].unique():
             if name.lower() in lower_prompt:
                 matched_student = df[df["name"] == name].iloc[0]
                 break
-        
+
         if matched_student is not None:
             status = "At Academic Risk " if matched_student["risk"] == 1 else "Good Standing "
             fallback_response = (
@@ -88,8 +78,7 @@ def get_ai_response(prompt):
                 f"- **Current Status:** {status}\n"
                 f"Is there anything else you want to know about this student?"
             )
-    
-    # Platform info
+
     if not fallback_response:
         if "what is eduverse" in lower_prompt or "eduverse kya hai" in lower_prompt:
             fallback_response = "EduVerse ek advanced, AI-powered education analytics platform hai. Yeh students ke attendance, assignment submissions, aur exam grades ko track karke future results ko predict karta hai, taaki high-risk students ko time par support mil sake. "
@@ -110,24 +99,22 @@ def get_ai_response(prompt):
                 f"- **Top Performers:** {top_5_str} "
             )
 
-    # 3. If a direct rule match (like Quick Action Chips) was found, return instantly (cache/bypass)
     if fallback_response:
         return record_stats(fallback_response, "Local Rule Engine (Instant)")
 
-    # 4. Call Groq API if Key is present
     api_key = os.getenv("GROQ_API_KEY")
     if api_key:
         try:
             client = get_cached_groq_client(api_key)
             system_prompt = f"""You are EduVerse AI Assistant, a friendly and highly intelligent educational counselor.
             You have access to REAL student data. Answer questions DIRECTLY, accurately, and professionally.
-            
+
             REAL PLATFORM DATA FACTS:
             - Total Registered Students: {total_students}
             - Average GPA: {avg_gpa}
             - At-risk students (risk=1): {at_risk_count}
             - Top 5 students: {top_5_str}
-            
+
             Rules:
             - Never repeat the exact same response twice.
             - Answer in Hinglish (a natural, premium mix of Hindi and English) to keep interactions engaging.
@@ -135,8 +122,7 @@ def get_ai_response(prompt):
             - When asked about stats or top performers, always quote the exact real data figures above.
             - Never output raw HTML tags (e.g. <div>).
             """
-            
-            # Primary model
+
             try:
                 model_name = "llama-3.3-70b-versatile"
                 completion = client.chat.completions.create(
@@ -154,7 +140,6 @@ def get_ai_response(prompt):
                 return record_stats(response_text, model_name)
             except Exception as model_err:
                 logger.warning(f"Primary model failed, trying fallback model: {str(model_err)}")
-                # Fallback model
                 model_name = "llama-3.1-8b-instant"
                 completion = client.chat.completions.create(
                     model=model_name,
@@ -169,15 +154,13 @@ def get_ai_response(prompt):
                 response_text = re.sub(r'<[^>]+>', '', response_text)
                 logger.info(f"API Response generated successfully via {model_name}")
                 return record_stats(response_text, model_name)
-            
+
         except Exception as api_err:
             logger.error(f"Groq API Call failed: {str(api_err)}")
-            # If the API call failed but we have a custom rule-based fallback response, use it!
             if fallback_response:
                 logger.info("Using rule-based response due to API failure")
                 return record_stats(fallback_response, "Local Rule Engine (API Fallback)")
-            
-            # General helpful AI failure message
+
             fail_msg = (
                 f"I encountered a temporary connection issue while talking to my brain, but I'm still here to help! \n\n"
                 f"**Here's what I know from our local records:**\n"
@@ -188,11 +171,10 @@ def get_ai_response(prompt):
             )
             return record_stats(fail_msg, "Local Fallback (Error)")
 
-    # 4. If No API Key, use fallback or generic helper response
     logger.info("No Groq API Key found. Using local fallback response.")
     if fallback_response:
         return record_stats(fallback_response, "Local Rule Engine")
-        
+
     default_msg = (
         "Main aapka EduVerse AI Assistant hoon! (API Key is not configured, but local data engine is fully active) \n\n"
         f"Aap mujhse humare platform ke statistics aur students ke baare mein pooch sakte hain. Jaise ki:\n"
