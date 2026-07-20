@@ -32,6 +32,7 @@ def generate_student_data(n=50):
 
 @st.cache_resource
 def train_predictive_models():
+    """Trains and returns two Random Forest models for predicting GPA and at-risk probability based on student features."""
     df = generate_student_data()
 
     features_list = ['attendance_pct', 'internal_marks', 'study_hours', 'prev_gpa', 'assignments_completed']

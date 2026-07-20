@@ -140,6 +140,7 @@ def get_teacher_histogram_chart(df_json):
 
 @st.cache_data(ttl=300)
 def get_teacher_scatter_chart(df_json):
+    """Generates a scatter plot comparing study hours to final GPA, colored by attendance percentage."""
     from io import StringIO
     df = pd.read_json(StringIO(df_json))
     fig = px.scatter(df, x='study_hours', y='final_gpa', color='attendance_pct',

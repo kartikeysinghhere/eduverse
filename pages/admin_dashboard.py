@@ -16,11 +16,12 @@ class CPUMonitor:
     def __init__(self):
         self.history = [12.0, 15.0, 14.0, 20.0, 25.0, 22.0, 18.0, 15.0, 14.0, 13.0, 16.0, 18.0, 22.0, 30.0, 28.0, 25.0, 20.0, 18.0, 15.0, 12.0]
         self.lock = threading.Lock()
+        self.stop_event = threading.Event()
         self.thread = threading.Thread(target=self._monitor, name="Global_CPU_Monitor", daemon=True)
         self.thread.start()
 
     def _monitor(self):
-        while True:
+        while not self.stop_event.is_set():
             try:
                 import psutil
                 val = psutil.cpu_percent(interval=1)
@@ -32,11 +33,15 @@ class CPUMonitor:
                 if len(self.history) > 20:
                     self.history.pop(0)
 
-            time.sleep(60)
+            # Wait for 60 seconds or until stop_event is set
+            self.stop_event.wait(60)
 
     def get_history(self):
         with self.lock:
             return list(self.history)
+            
+    def stop(self):
+        self.stop_event.set()
 
 @st.cache_resource
 def get_cpu_monitor():

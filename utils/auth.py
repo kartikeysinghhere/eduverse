@@ -88,6 +88,7 @@ def sign_in(username, password):
         return None
 
 def sign_in_with_google(google_user_info):
+    """Authenticates a user via Google OAuth by matching their verified email against the database."""
     if not google_user_info or not google_user_info.get("email"):
         logger.error("No email found in google_user_info")
         return None

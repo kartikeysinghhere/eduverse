@@ -146,6 +146,7 @@ def seed_data():
     pass
 
 def insert_records(table_name, records):
+    """Inserts a list of dictionary records into the specified table, supporting both Supabase and local SQLite."""
     increment_query_count()
     if DB_MODE == "supabase" and SUPABASE_URL and SUPABASE_KEY:
         try:

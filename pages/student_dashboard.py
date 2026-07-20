@@ -169,50 +169,25 @@ def show_grades():
             df_marks = generate_subject_marks()
             df_marks['student_id'] = student_id
 
-            from utils.db import DB_MODE
-            if DB_MODE == "supabase":
-                try:
-                    from utils.db import get_supabase_client
-                    supabase = get_supabase_client()
-
-                    records = []
-                    for _, row in df_marks.iterrows():
-                        records.append({
-                            "student_id": int(student_id),
-                            "subject": str(row['Subject']),
-                            "marks": int(row['Marks'])
-                        })
-                    try:
-                        supabase.table("grades").insert(records).execute()
-                    except Exception:
-                        supabase.table("marks").insert(records).execute()
-                except Exception as insert_err:
-                    print(f"Error saving generated marks to Supabase: {insert_err}")
-            else:
-                import sqlite3
-                from pathlib import Path
-                ROOT = Path(__file__).resolve().parent.parent
-                try:
-                    conn = sqlite3.connect(str(ROOT / "eduverse.db"))
-                    cur = conn.cursor()
-                    for _, row in df_marks.iterrows():
-                        try:
-                            cur.execute(
-                                "INSERT INTO grades (student_id, Subject, Marks) VALUES (?, ?, ?)",
-                                (int(student_id), str(row['Subject']), int(row['Marks']))
-                            )
-                        except Exception:
-                            try:
-                                cur.execute(
-                                    "INSERT INTO marks (student_id, subject, marks) VALUES (?, ?, ?)",
-                                    (int(student_id), str(row['Subject']), int(row['Marks']))
-                                )
-                            except Exception:
-                                pass
-                    conn.commit()
-                    conn.close()
-                except Exception as sqlite_err:
-                    print(f"Error saving generated marks to SQLite: {sqlite_err}")
+            from utils.db import insert_records
+            
+            records = []
+            for _, row in df_marks.iterrows():
+                records.append({
+                    "student_id": int(student_id),
+                    "Subject": str(row['Subject']),
+                    "Marks": int(row['Marks'])
+                })
+            
+            if not insert_records("grades", records):
+                fallback_records = []
+                for _, row in df_marks.iterrows():
+                    fallback_records.append({
+                        "student_id": int(student_id),
+                        "subject": str(row['Subject']),
+                        "marks": int(row['Marks'])
+                    })
+                insert_records("marks", fallback_records)
 
         st.session_state.student_marks = df_marks
         st.session_state.student_marks_user_id = student_id
