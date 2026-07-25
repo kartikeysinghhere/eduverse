@@ -134,7 +134,7 @@ def get_ai_response(prompt):
                     temperature=0.7,
                     max_tokens=1024,
                 )
-                response_text = completion.choices[0].message.content
+                response_text = completion.choices[0].message.content or ""
                 response_text = re.sub(r'<[^>]+>', '', response_text)
                 logger.info(f"API Response generated successfully via {model_name}")
                 return record_stats(response_text, model_name)
@@ -150,7 +150,7 @@ def get_ai_response(prompt):
                     temperature=0.7,
                     max_tokens=1024,
                 )
-                response_text = completion.choices[0].message.content
+                response_text = completion.choices[0].message.content or ""
                 response_text = re.sub(r'<[^>]+>', '', response_text)
                 logger.info(f"API Response generated successfully via {model_name}")
                 return record_stats(response_text, model_name)
