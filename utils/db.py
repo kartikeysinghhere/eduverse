@@ -15,6 +15,7 @@ load_dotenv(dotenv_path=ROOT / ".env", override=True)
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 DB_MODE = os.environ.get("DB_MODE", "supabase")
 
 VALID_TABLES = {"users", "students", "grades", "marks", "attendance", "departments", "analytics_logs", "subjects", "teachers"}
@@ -57,6 +58,12 @@ def get_supabase_client() -> Client:
     if not SUPABASE_URL or not SUPABASE_KEY:
         raise ValueError("Supabase URL and Key must be set in environment variables.")
     return create_client(SUPABASE_URL, SUPABASE_KEY)
+
+@st.cache_resource
+def get_supabase_service_client() -> Client:
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        raise ValueError("Supabase URL and Service Role Key must be set in environment variables.")
+    return create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')

@@ -5,7 +5,7 @@ import logging
 import streamlit as st
 from dotenv import load_dotenv
 from pathlib import Path
-from utils.db import get_supabase_client
+from utils.db import get_supabase_client, get_supabase_service_client
 
 logger = logging.getLogger("eduverse.auth")
 logging.basicConfig(level=logging.WARNING)
@@ -156,7 +156,7 @@ def is_login_blocked(username: str) -> bool:
         return False
     if DB_MODE == "supabase":
         try:
-            supabase = get_supabase_client()
+            supabase = get_supabase_service_client()
             five_mins_ago = (datetime.utcnow() - timedelta(minutes=5)).isoformat()
             res = supabase.table("failed_logins").select("id", count="exact").eq("username", username).gte("timestamp", five_mins_ago).execute()
             return res.count is not None and res.count >= 5
@@ -178,7 +178,7 @@ def record_attempt(username: str):
         return
     if DB_MODE == "supabase":
         try:
-            supabase = get_supabase_client()
+            supabase = get_supabase_service_client()
             supabase.table("failed_logins").insert({"username": username}).execute()
             return
         except Exception:
@@ -197,7 +197,7 @@ def reset_attempts(username: str):
         return
     if DB_MODE == "supabase":
         try:
-            supabase = get_supabase_client()
+            supabase = get_supabase_service_client()
             supabase.table("failed_logins").delete().eq("username", username).execute()
             return
         except Exception:
