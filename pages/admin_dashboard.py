@@ -1,3 +1,4 @@
+from typing import cast
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -238,7 +239,7 @@ def generate_pdf_report(report_type, start_date, end_date, df_students, df_dept)
             fill = idx % 2 == 1
             pdf.set_fill_color(241, 245, 249) if fill else pdf.set_fill_color(255, 255, 255)
 
-            dept_students = df_students[df_students['department'] == row['department']] if not df_students.empty else []
+            dept_students = df_students[df_students['department'] == row['department']] if not df_students.empty else pd.DataFrame()
             crit_count = len(dept_students[dept_students['attendance_pct'] < 75]) if not df_students.empty else int(row['total_students'] * 0.1)
 
             pdf.cell(60, 7, text=str(row['department']), border=1, align="C", fill=fill)
@@ -425,18 +426,30 @@ def show_user_mgmt():
             {"id": 4, "username": "mlee", "role": "Teacher", "email": "mlee@eduverse.ai"},
             {"id": 5, "username": "swilliams", "role": "Student", "email": "swilliams@eduverse.ai"},
         ])
-    df_display = df_users[['id', 'username', 'role', 'email']].copy()
-    df_display.rename(columns={
+    df_display = cast(pd.DataFrame, df_users[['id', 'username', 'role', 'email']].copy())
+    df_display = df_display.rename(columns={
         'id': 'ID',
         'username': 'Username',
         'role': 'Role',
         'email': 'Email Address'
-    }, inplace=True)
+    })
 
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    total_users = len(df_users)
+    admins = len(df_users[df_users['role'] == 'Admin'])
+    teachers = len(df_users[df_users['role'] == 'Teacher'])
+    students = len(df_users[df_users['role'] == 'Student'])
+    
+    metrics = [
+        {"label": "Total Users", "value": str(total_users), "trend": "Active"},
+        {"label": "Active Admins", "value": str(admins), "trend": "Verified"},
+        {"label": "Total Teachers", "value": str(teachers)},
+        {"label": "Total Students", "value": str(students)}
+    ]
+    metric_row(metrics)
+    st.markdown("<br>", unsafe_allow_html=True)
+
     st.markdown('<h3 class="gradient-text" style="margin-top: 0; font-size: 1.2rem;">User Directory</h3>', unsafe_allow_html=True)
     st.dataframe(df_display, use_container_width=True, hide_index=True)
-    st.markdown('</div>', unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
     with col1:
@@ -462,17 +475,24 @@ def show_audit_logs():
             {"user_id": 3, "action": "Login", "timestamp": (now - timedelta(hours=2)).isoformat()},
             {"user_id": 4, "action": "Export CSV", "timestamp": (now - timedelta(hours=4)).isoformat()},
         ])
-    df_display = df_logs.sort_values('timestamp', ascending=False).copy()
-    df_display.rename(columns={
+    df_display = cast(pd.DataFrame, df_logs.sort_values('timestamp', ascending=False).copy())
+    df_display = df_display.rename(columns={
         'user_id': 'User ID',
         'action': 'Action',
         'timestamp': 'Timestamp'
-    }, inplace=True)
+    })
 
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    total_logs = len(df_logs)
+    
+    metrics = [
+        {"label": "Total Log Entries", "value": str(total_logs), "trend": "Real-time"},
+        {"label": "Recent Activity", "value": "Active", "trend": "Monitoring"}
+    ]
+    metric_row(metrics)
+    st.markdown("<br>", unsafe_allow_html=True)
+
     st.markdown('<h3 class="gradient-text" style="margin-top: 0; font-size: 1.2rem;">Recent Audit Logs</h3>', unsafe_allow_html=True)
     st.dataframe(df_display, use_container_width=True, hide_index=True)
-    st.markdown('</div>', unsafe_allow_html=True)
 
 
 def show_system_health():

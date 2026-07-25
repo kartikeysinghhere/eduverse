@@ -265,9 +265,9 @@ def sidebar_nav():
             st.session_state.last_search = search_query
 
     MENU = {
-        "Student": ["Dashboard", "My Grades", "Attendance", "AI Insights", "How It Works", "AI Chat"],
-        "Teacher": ["Dashboard", "Student Management", "Upload Marks", "Analytics", "How It Works", "AI Chat"],
-        "Admin": ["Dashboard", "User Management", "System Health", "Reports", "Audit Logs", "Smart Analytics", "How It Works", "AI Chat"]
+        "Student": ["Dashboard", "My Grades", "Attendance", "AI Insights", "AI Chat"],
+        "Teacher": ["Dashboard", "Student Management", "Upload Marks", "Analytics", "AI Chat"],
+        "Admin": ["Dashboard", "User Management", "System Health", "Reports", "Audit Logs", "Smart Analytics", "AI Chat"]
     }
 
     available_pages = MENU.get(st.session_state.role, [])
@@ -307,11 +307,7 @@ def main():
     if not st.session_state.logged_in:
         show_landing_page()
     else:
-        if selection == "How It Works":
-            require_role(['Admin', 'Teacher', 'Student'])
-            import pages.how_it_works as how_it_works
-            how_it_works.show()
-        elif selection == "AI Chat":
+        if selection == "AI Chat":
             require_role(['Admin', 'Teacher', 'Student'])
             from pages import ai_insights
             ai_insights.show_chat()
@@ -408,7 +404,7 @@ def show_landing_page():
                     backdrop-filter: blur(20px) !important;
                     border: 1px solid rgba(255, 255, 255, 0.08) !important;
                     border-radius: 20px !important;
-                    padding: 1rem 2.2rem !important;
+                    padding: 1.5rem 2.5rem 2rem !important;
                     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3) !important;
                 }
                 </style>
@@ -470,27 +466,25 @@ def show_landing_page():
                 }
                 </style>
             """, unsafe_allow_html=True)
-            st.markdown("<div style='height: 0;'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
             if st.button("Access Dashboard", key="access_dashboard_btn", use_container_width=True, on_click=handle_login):
                 pass
 
-            st.markdown("<div style='text-align: center; padding: 14px 0; margin: 0; color: #64748b; font-weight: bold; font-size: 0.9rem; letter-spacing: 1px;'>— OR —</div>", unsafe_allow_html=True)
+            st.markdown("<div style='text-align: center; padding: 12px 0 8px; margin: 0; color: #64748b; font-weight: bold; font-size: 0.9rem; letter-spacing: 1px;'>— OR —</div>", unsafe_allow_html=True)
 
             try:
                 auth_url = get_google_auth_url()
                 st.markdown(f'''
-                    <a href="{auth_url}" target="_self">
-                        <button style="background:#1a73e8; color:white; border:none;
-                        padding:8px 20px; border-radius:8px; cursor:pointer;
-                        font-size:14px; width:100%;">
-                            Sign in with Google
-                        </button>
-                    </a>
+                    <div class="google-signin-wrapper">
+                        <a href="{auth_url}" target="_self">
+                            <button>Sign in with Google</button>
+                        </a>
+                    </div>
                 ''', unsafe_allow_html=True)
             except Exception as e:
                 st.error("Google login currently unavailable.")
 
-            st.markdown("<div style='height: 0;'></div>", unsafe_allow_html=True)
+            st.markdown("<div class='login-footer-spacer'></div>", unsafe_allow_html=True)
             if st.button("← Return to Home", key="back_home", use_container_width=True):
                 st.session_state.show_login = False
                 st.rerun()
