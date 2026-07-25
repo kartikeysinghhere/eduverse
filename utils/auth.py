@@ -6,6 +6,7 @@ import streamlit as st
 from dotenv import load_dotenv
 from pathlib import Path
 from utils.db import get_supabase_client, get_supabase_service_client
+from postgrest.types import CountMethod
 
 logger = logging.getLogger("eduverse.auth")
 logging.basicConfig(level=logging.WARNING)
@@ -57,8 +58,10 @@ def sign_in(username, password):
 
             if response.data:
                 user = response.data[0]
-                if verify_password(password, user.get('password_hash', '')):
-                    return user
+                if isinstance(user, dict):
+                    hashed = user.get('password_hash', '')
+                    if isinstance(hashed, str) and verify_password(password, hashed):
+                        return user
             return None
 
         except Exception as e:
@@ -158,10 +161,10 @@ def is_login_blocked(username: str) -> bool:
         try:
             supabase = get_supabase_service_client()
             five_mins_ago = (datetime.utcnow() - timedelta(minutes=5)).isoformat()
-            res = supabase.table("failed_logins").select("id", count="exact").eq("username", username).gte("timestamp", five_mins_ago).execute()
+            res = supabase.table("failed_logins").select("id", count=CountMethod.exact).eq("username", username).gte("timestamp", five_mins_ago).execute()
             return res.count is not None and res.count >= 5
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Supabase unavailable, falling back to SQLite. Error: {e}")
             
     try:
         conn = get_db_connection()
@@ -181,8 +184,8 @@ def record_attempt(username: str):
             supabase = get_supabase_service_client()
             supabase.table("failed_logins").insert({"username": username}).execute()
             return
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Supabase unavailable, falling back to SQLite. Error: {e}")
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -200,8 +203,8 @@ def reset_attempts(username: str):
             supabase = get_supabase_service_client()
             supabase.table("failed_logins").delete().eq("username", username).execute()
             return
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Supabase unavailable, falling back to SQLite. Error: {e}")
     try:
         conn = get_db_connection()
         cur = conn.cursor()
