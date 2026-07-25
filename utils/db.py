@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import bcrypt
+from typing import Any
 from supabase import create_client, Client
 from dotenv import load_dotenv
 from datetime import datetime
@@ -63,7 +64,7 @@ def hash_password(password: str) -> str:
 
 
 @st.cache_data(ttl=60)
-def _fetch_table_cached(table_name, filters_json, db_mode):
+def _fetch_table_cached(table_name: str, filters_json: str | None, db_mode: str) -> list[Any]:
     if table_name not in VALID_TABLES:
         raise ValueError(f"Invalid table name: '{table_name}'. Allowed tables: {VALID_TABLES}")
 
@@ -108,30 +109,18 @@ def _fetch_table_cached(table_name, filters_json, db_mode):
         return [dict(r) for r in rows]
     except Exception as e:
         print(f"SQLite fetch error for {table_name}: {e}")
+        st.error("Database connection failed while fetching data.")
         return []
 
-def fetch_table(table_name, filters=None):
+def fetch_table(table_name: str, filters: dict | None = None) -> list[Any]:
     increment_query_count()
     filters_json = json.dumps(filters, sort_keys=True) if filters else None
     return _fetch_table_cached(table_name, filters_json, DB_MODE)
 
-def log_action(user_id, action):
+def log_action(user_id: int, action: str) -> None:
     increment_query_count()
-    if DB_MODE != "supabase":
-        try:
-            conn = sqlite3.connect(str(ROOT / "eduverse.db"))
-            cur = conn.cursor()
-            cur.execute("""
-            INSERT INTO analytics_logs (user_id, action, timestamp)
-            VALUES (?, ?, ?)
-            """, (user_id, action, datetime.now().isoformat()))
-            conn.commit()
-            conn.close()
-        except Exception as e:
-            print(f"SQLite logging error: {e}")
-
+    
     if DB_MODE == "supabase" and SUPABASE_URL and SUPABASE_KEY:
-        increment_query_count()
         try:
             supabase = get_supabase_client()
             supabase.table("analytics_logs").insert({
@@ -139,15 +128,30 @@ def log_action(user_id, action):
                 "action": action,
                 "timestamp": datetime.now().isoformat()
             }).execute()
+            return
         except Exception as e:
-            print(f"Supabase logging error: {e}")
+            print(f"Supabase logging error: {e}. Falling back to SQLite.")
+
+    # SQLite (Fallback or Primary)
+    try:
+        conn = sqlite3.connect(str(ROOT / "eduverse.db"))
+        cur = conn.cursor()
+        cur.execute("""
+        INSERT INTO analytics_logs (user_id, action, timestamp)
+        VALUES (?, ?, ?)
+        """, (user_id, action, datetime.now().isoformat()))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"SQLite logging error: {e}")
 
 def seed_data():
     pass
 
-def insert_records(table_name, records):
+def insert_records(table_name: str, records: list[Any]) -> bool:
     """Inserts a list of dictionary records into the specified table, supporting both Supabase and local SQLite."""
     increment_query_count()
+    
     if DB_MODE == "supabase" and SUPABASE_URL and SUPABASE_KEY:
         try:
             supabase = get_supabase_client()
@@ -155,9 +159,9 @@ def insert_records(table_name, records):
             st.cache_data.clear()
             return True
         except Exception as e:
-            print(f"Supabase insert error for {table_name}: {e}")
-            return False
-    
+            print(f"Supabase insert error for {table_name}: {e}. Falling back to SQLite.")
+            
+    # SQLite (Fallback or Primary)
     try:
         conn = sqlite3.connect(str(ROOT / "eduverse.db"))
         cur = conn.cursor()

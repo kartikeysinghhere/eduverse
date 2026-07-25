@@ -5,33 +5,12 @@ import time
 from collections import defaultdict
 from dotenv import load_dotenv
 from pathlib import Path
-from utils.auth import sign_in, sign_in_with_google, require_role
+from utils.auth import sign_in, sign_in_with_google, require_role, is_login_blocked, record_attempt, reset_attempts
 from utils.db import log_action
 from utils.notifications import show_notifications
 
 
-@st.cache_resource
-def get_login_tracker():
-    return defaultdict(list)
 
-def is_login_blocked(username: str) -> bool:
-    if not username:
-        return False
-    tracker = get_login_tracker()
-    now = time.time()
-    tracker[username] = [t for t in tracker[username] if now - t < 300]
-    return len(tracker[username]) >= 5
-
-def record_attempt(username: str):
-    if not username:
-        return
-    tracker = get_login_tracker()
-    tracker[username].append(time.time())
-
-def reset_attempts(username: str):
-    tracker = get_login_tracker()
-    if username in tracker:
-        tracker[username] = []
 
 
 def handle_login():

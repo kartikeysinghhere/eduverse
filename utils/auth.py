@@ -63,6 +63,7 @@ def sign_in(username, password):
 
         except Exception as e:
             logger.error("Supabase authentication encountered a connection/query error.")
+            st.error("Authentication service is temporarily unavailable.")
             return None
 
     try:
@@ -85,6 +86,7 @@ def sign_in(username, password):
 
     except Exception as e:
         logger.error("SQLite fallback authentication encountered a connection/query error.")
+        st.error("Authentication service is temporarily unavailable.")
         return None
 
 def sign_in_with_google(google_user_info):
@@ -128,3 +130,83 @@ def require_role(allowed_roles: list):
     if not st.session_state.get("user") or st.session_state.user.get("role") not in allowed_roles:
         st.error("Access denied")
         st.stop()
+
+def init_rate_limit_db():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS failed_logins (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """)
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.error(f"Failed to init rate limit db: {e}")
+
+init_rate_limit_db()
+
+from datetime import datetime, timedelta
+
+def is_login_blocked(username: str) -> bool:
+    if not username:
+        return False
+    if DB_MODE == "supabase":
+        try:
+            supabase = get_supabase_client()
+            five_mins_ago = (datetime.utcnow() - timedelta(minutes=5)).isoformat()
+            res = supabase.table("failed_logins").select("id", count="exact").eq("username", username).gte("timestamp", five_mins_ago).execute()
+            return res.count is not None and res.count >= 5
+        except Exception:
+            pass
+            
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM failed_logins WHERE username = ? AND timestamp >= datetime('now', '-5 minutes')", (username,))
+        count = cur.fetchone()[0]
+        conn.close()
+        return count >= 5
+    except Exception:
+        return False
+
+def record_attempt(username: str):
+    if not username:
+        return
+    if DB_MODE == "supabase":
+        try:
+            supabase = get_supabase_client()
+            supabase.table("failed_logins").insert({"username": username}).execute()
+            return
+        except Exception:
+            pass
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("INSERT INTO failed_logins (username) VALUES (?)", (username,))
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
+
+def reset_attempts(username: str):
+    if not username:
+        return
+    if DB_MODE == "supabase":
+        try:
+            supabase = get_supabase_client()
+            supabase.table("failed_logins").delete().eq("username", username).execute()
+            return
+        except Exception:
+            pass
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM failed_logins WHERE username = ?", (username,))
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
