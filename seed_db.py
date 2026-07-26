@@ -144,13 +144,8 @@ def main():
     cur.execute("INSERT INTO users (id, username, password_hash, role, email) VALUES (?, ?, ?, ?, ?)",
                 (998, "teacher", teacher_pw, "Teacher", "teacher@eduverse.ai"))
 
-    cur.execute("INSERT INTO users (id, username, password_hash, role, email) VALUES (?, ?, ?, ?, ?)",
-                (1, "student", student_pw, "Student", "student@eduverse.ai"))
-
     for row in df.to_dict('records'):
         sid = int(row['student_id'])
-        if sid == 1:
-            continue
 
         username = row['name'].lower().replace(" ", "")
         email = f"{username}@eduverse.ai"

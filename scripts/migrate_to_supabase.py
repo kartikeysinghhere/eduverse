@@ -218,7 +218,7 @@ def main():
     })
     for row in df.to_dict('records'):
         sid = int(row['student_id'])
-        username = "student" if sid == 1 else row['name'].lower().replace(" ", "")
+        username = row['name'].lower().replace(" ", "")
         email = f"{username}@eduverse.ai"
         users_to_load.append({
             "id": sid,

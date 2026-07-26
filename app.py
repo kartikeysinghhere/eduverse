@@ -157,7 +157,7 @@ if has_google_callback and not st.session_state.logged_in:
                 st.rerun()
             else:
                 clear_oauth_query_params()
-                st.session_state.google_auth_error = "Access denied: Your Gmail account is not registered in EduVerse."
+                st.session_state.google_auth_error = "Sign-in failed: Could not create your account. Please try again later."
                 st.session_state.show_login = True
                 st.rerun()
         else:

@@ -26,9 +26,23 @@ def show_teacher_main():
     try:
         teacher_id = st.session_state.user['id']
         data = fetch_table("students", filters={"assigned_teacher_id": teacher_id})
-        df = pd.DataFrame(data)
+        if not data:
+            df = pd.DataFrame()
+        else:
+            df = pd.DataFrame(data)
     except Exception:
-        df = generate_student_data(45)
+        df = pd.DataFrame()
+
+    if df.empty:
+        metrics = [
+            {"label": "Total Students", "value": "0", "trend": "—"},
+            {"label": "Class Average", "value": "—", "trend": "—"},
+            {"label": "At Risk", "value": "0", "trend": "—"},
+            {"label": "Pending Tasks", "value": "0", "trend": "—"}
+        ]
+        metric_row(metrics)
+        st.info("No students are currently assigned to you. New students will appear here once they are assigned.")
+        return
 
     total_students = len(df)
     class_avg = f"{df['internal_marks'].mean():.1f}%"
@@ -68,10 +82,15 @@ def show_student_list():
         teacher_id = st.session_state.user['id']
         data = fetch_table("students", filters={"assigned_teacher_id": teacher_id})
         if not data:
-            raise Exception("empty")
-        df = pd.DataFrame(data)
+            df = pd.DataFrame()
+        else:
+            df = pd.DataFrame(data)
     except Exception:
-        df = generate_student_data(45)
+        df = pd.DataFrame()
+
+    if df.empty:
+        st.info("No students are currently assigned to you.")
+        return
 
     search = st.text_input(" Search Student by ID or Name")
     if search:
@@ -152,6 +171,7 @@ def get_teacher_scatter_chart(df_json):
 
 def show_class_analytics():
     section_header("Class-wide Insights", "Visualize trends and identify bottlenecks")
+    st.info("ℹ️ **Demo Mode:** The charts below use generated sample data to demonstrate analytics capabilities.")
     df = generate_student_data(100)
 
     col1, col2 = st.columns(2)
