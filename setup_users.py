@@ -4,7 +4,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 from pathlib import Path
 from supabase import create_client
-
+from typing import Any, cast, List, Dict
 ROOT = Path(__file__).resolve().parent
 load_dotenv(dotenv_path=ROOT / ".env")
 
@@ -37,7 +37,7 @@ def main():
     print("[*] Connecting to Supabase...")
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-    users_to_create = [
+    users_to_create: List[Dict[str, Any]] = [
         {
             "username": "admin",
             "password": admin_password,
@@ -57,16 +57,16 @@ def main():
     for user_info in users_to_create:
         username = user_info["username"]
         email = user_info["email"]
-        password = user_info["password"]
-        role = user_info["role"]
-        uid = user_info["id"]
+        password = cast(str, user_info["password"])
+        role = cast(str, user_info["role"])
+        uid = cast(int, user_info["id"])
 
         print(f"\n[*] Processing user: {username} ({role})...")
         password_hash = hash_password(password)
 
         res = supabase.table("users").select("*").eq("username", username).execute()
         if res.data:
-            existing_user = res.data[0]
+            existing_user = cast(Dict[str, Any], res.data[0])
             existing_id = existing_user["id"]
             print(f"[+] User '{username}' already exists (ID: {existing_id}). Updating details...")
             supabase.table("users").update({
@@ -80,9 +80,9 @@ def main():
             new_user = {
                 "id": uid,
                 "username": username,
-                "email": email,
+                "email": cast(str, email),
                 "password_hash": password_hash,
-                "role": role
+                "role": cast(str, role)
             }
             try:
                 supabase.table("users").insert(new_user).execute()

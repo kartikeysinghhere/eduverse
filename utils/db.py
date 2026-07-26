@@ -9,6 +9,9 @@ import streamlit as st
 import json
 from pathlib import Path
 import time
+import logging
+
+logger = logging.getLogger("eduverse.db")
 
 ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(dotenv_path=ROOT / ".env", override=True)
@@ -19,7 +22,7 @@ SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 DB_MODE = os.environ.get("DB_MODE", "supabase")
 
 VALID_TABLES = {"users", "students", "grades", "marks", "attendance", "departments", "analytics_logs", "subjects", "teachers"}
-VALID_FILTER_COLUMNS = {"student_id", "user_id", "username", "email", "role", "department", "id"}
+VALID_FILTER_COLUMNS = {"id", "username", "email", "role", "student_id", "user_id", "department", "assigned_teacher_id"}
 
 if "APP_START_TIME" not in globals():
     globals()["APP_START_TIME"] = time.time()
@@ -83,7 +86,7 @@ def _fetch_table_cached(table_name: str, filters_json: str | None, db_mode: str)
 
     if db_mode == "supabase" and SUPABASE_URL and SUPABASE_KEY:
         try:
-            supabase = get_supabase_client()
+            supabase = get_supabase_service_client()
             query = supabase.table(table_name).select("*")
             if filters_json:
                 filters = json.loads(filters_json)
@@ -92,7 +95,7 @@ def _fetch_table_cached(table_name: str, filters_json: str | None, db_mode: str)
             response = query.execute()
             return response.data
         except Exception as e:
-            print(f"Supabase fetch failed for {table_name}: {e}. Trying local SQLite.")
+            logger.warning(f"Supabase unavailable, falling back to SQLite. Error: {e}")
 
     try:
         conn = sqlite3.connect(str(ROOT / "eduverse.db"))
@@ -129,7 +132,7 @@ def log_action(user_id: int, action: str) -> None:
     
     if DB_MODE == "supabase" and SUPABASE_URL and SUPABASE_KEY:
         try:
-            supabase = get_supabase_client()
+            supabase = get_supabase_service_client()
             supabase.table("analytics_logs").insert({
                 "user_id": user_id,
                 "action": action,
@@ -137,7 +140,7 @@ def log_action(user_id: int, action: str) -> None:
             }).execute()
             return
         except Exception as e:
-            print(f"Supabase logging error: {e}. Falling back to SQLite.")
+            logger.warning(f"Supabase unavailable, falling back to SQLite. Error: {e}")
 
     # SQLite (Fallback or Primary)
     try:
@@ -161,12 +164,12 @@ def insert_records(table_name: str, records: list[Any]) -> bool:
     
     if DB_MODE == "supabase" and SUPABASE_URL and SUPABASE_KEY:
         try:
-            supabase = get_supabase_client()
-            supabase.table(table_name).insert(records).execute()
+            supabase = get_supabase_service_client()
+            res = supabase.table(table_name).insert(records).execute()
             st.cache_data.clear()
             return True
         except Exception as e:
-            print(f"Supabase insert error for {table_name}: {e}. Falling back to SQLite.")
+            logger.warning(f"Supabase unavailable, falling back to SQLite. Error: {e}")
             
     # SQLite (Fallback or Primary)
     try:

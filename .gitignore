@@ -32,3 +32,6 @@ Thumbs.db
 
 # Antigravity scratch
 scratch/
+
+# Test virtual environment
+.venv_test/

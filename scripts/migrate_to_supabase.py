@@ -3,6 +3,7 @@ import sqlite3
 import pandas as pd
 import numpy as np
 import bcrypt
+from postgrest.types import CountMethod
 from datetime import datetime, timedelta
 from pathlib import Path
 from dotenv import load_dotenv
@@ -144,7 +145,7 @@ def main():
 
     print("\nPreparing 500 student profiles data...")
     students_to_load = []
-    for _, row in df.iterrows():
+    for row in df.to_dict('records'):
         sid = int(row['student_id'])
         sname = row['name']
         students_to_load.append({
@@ -167,7 +168,7 @@ def main():
     dates = [datetime(2026, 5, 1) + timedelta(days=i) for i in range(24)]
     np.random.seed(42)
 
-    for _, row in df.iterrows():
+    for row in df.to_dict('records'):
         sid = int(row['student_id'])
         pct = float(row['attendance_pct']) / 100.0
         statuses = np.random.choice(['Present', 'Absent'], size=24, p=[pct, 1 - pct])
@@ -185,7 +186,7 @@ def main():
 
     subjects_list = ["Mathematics", "Physics", "Computer Science", "Data Structures", "AI", "Ethics"]
 
-    for _, row in df.iterrows():
+    for row in df.to_dict('records'):
         sid = int(row['student_id'])
         base_marks = float(row['internal_marks'])
 
@@ -215,7 +216,7 @@ def main():
         "role": "Teacher",
         "email": "teacher@eduverse.ai"
     })
-    for _, row in df.iterrows():
+    for row in df.to_dict('records'):
         sid = int(row['student_id'])
         username = "student" if sid == 1 else row['name'].lower().replace(" ", "")
         email = f"{username}@eduverse.ai"
@@ -238,37 +239,37 @@ def main():
     print("====================================================")
 
     try:
-        cnt_students = supabase.table("students").select("*", count="exact").limit(0).execute().count
+        cnt_students = supabase.table("students").select("*", count=CountMethod.exact).limit(0).execute().count
         print(f"Table 'students' Count    : {cnt_students} / 500")
     except Exception as e:
         print(f"Table 'students' Count    : Error querying: {e}")
 
     try:
-        cnt_teachers = supabase.table("teachers").select("*", count="exact").limit(0).execute().count
+        cnt_teachers = supabase.table("teachers").select("*", count=CountMethod.exact).limit(0).execute().count
         print(f"Table 'teachers' Count    : {cnt_teachers} / 5")
     except Exception as e:
         print(f"Table 'teachers' Count    : Error querying: {e}")
 
     try:
-        cnt_subjects = supabase.table("subjects").select("*", count="exact").limit(0).execute().count
+        cnt_subjects = supabase.table("subjects").select("*", count=CountMethod.exact).limit(0).execute().count
         print(f"Table 'subjects' Count    : {cnt_subjects} / 6")
     except Exception as e:
         print(f"Table 'subjects' Count    : Error querying: {e}")
 
     try:
-        cnt_attendance = supabase.table("attendance").select("*", count="exact").limit(0).execute().count
+        cnt_attendance = supabase.table("attendance").select("*", count=CountMethod.exact).limit(0).execute().count
         print(f"Table 'attendance' Count  : {cnt_attendance} / 12000")
     except Exception as e:
         print(f"Table 'attendance' Count  : Error querying: {e}")
 
     try:
-        cnt_marks = supabase.table("marks").select("*", count="exact").limit(0).execute().count
+        cnt_marks = supabase.table("marks").select("*", count=CountMethod.exact).limit(0).execute().count
         print(f"Table 'marks' Count       : {cnt_marks} / 3000")
     except Exception as e:
         print(f"Table 'marks' Count       : Error querying: {e}")
 
     try:
-        cnt_users = supabase.table("users").select("*", count="exact").limit(0).execute().count
+        cnt_users = supabase.table("users").select("*", count=CountMethod.exact).limit(0).execute().count
         print(f"Table 'users' Count       : {cnt_users}")
     except Exception:
         print(f"Table 'users' Count       : Table does not exist in Supabase (SQLite Fallback active)")

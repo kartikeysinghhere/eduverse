@@ -72,6 +72,10 @@ header, footer {
     position: relative;
     overflow: hidden;
     transition: all 0.3s ease;
+    min-height: 160px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .metric-card:hover {
@@ -234,57 +238,59 @@ div[data-testid="stVerticalBlock"] > div > button:hover {
 }
 
 /* ──────────────────────────────────────────────────────────────
-   UNAUTHENTICATED / LOGIN VIEW - ZERO SCROLL OVERRIDES
+   UNAUTHENTICATED / LOGIN VIEW — LAYOUT FIX
    ────────────────────────────────────────────────────────────── */
 
-/* Eliminate scroll bars completely on login/landing views */
-.stApp:has(.unauthenticated-root), 
+/* Allow scroll when viewport is too short; center when there's room */
+.stApp:has(.unauthenticated-root),
 .stApp:has(.unauthenticated-root) [data-testid="stAppViewContainer"],
 .stApp:has(.unauthenticated-root) [data-testid="stAppViewBlockContainer"],
 .stApp:has(.unauthenticated-root) .main,
 .stApp:has(.unauthenticated-root) .main .block-container {
-    overflow: hidden !important;
-    height: 100vh !important;
-    max-height: 100vh !important;
+    overflow-y: auto !important;       /* was hidden — clipped bottom content */
+    overflow-x: hidden !important;
+    min-height: 100vh !important;
+    height: auto !important;           /* was 100vh — prevented natural sizing */
+    max-height: none !important;
 }
 
-/* Minimal padding — keep everything within viewport */
+/* Center the card within the viewport */
 .stApp:has(.unauthenticated-root) .main .block-container {
-    padding-top: 0rem !important;
-    padding-bottom: 0rem !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
     display: flex !important;
     flex-direction: column !important;
     justify-content: center !important;
+    align-items: stretch !important;
 }
 
-/* Tight gaps to fit within viewport and center the actual content block */
+/* Vertical block gaps — 4px base so card fits shorter viewports */
 .stApp:has(.unauthenticated-root) [data-testid="stVerticalBlock"] {
-    gap: 0.15rem !important;
+    gap: 0.25rem !important;           /* 4px — compact but non-zero */
     display: flex !important;
     flex-direction: column !important;
     justify-content: center !important;
-    height: 100% !important;
+    /* removed height: 100% — let content define height */
 }
 
-/* Login card padding — compact to fit viewport */
+/* ── Login card column ── */
 .stApp:has(.unauthenticated-root) [data-testid="column"]:nth-of-type(2) {
-    padding: 0.8rem 2.2rem !important;
+    padding: 1.5rem 2.5rem 2rem !important;  /* extra bottom padding for footer */
     border-radius: 20px !important;
 }
 
-/* Optimize header heights & margins */
+/* ── Header ── */
 .stApp:has(.unauthenticated-root) .sidebar-logo {
     font-size: 2.4rem !important;
-    margin-bottom: 0px !important;
+    margin-bottom: 0 !important;
     line-height: 1 !important;
 }
 
-/* Scale down the "Welcome Back" header font-size and margin */
 .stApp:has(.unauthenticated-root) .gradient-text {
     line-height: 1.2 !important;
 }
 
-/* Input labels — readable but compact */
+/* ── Input labels ── */
 .stApp:has(.unauthenticated-root) label {
     margin-bottom: 0.1rem !important;
     font-size: 0.9rem !important;
@@ -292,33 +298,105 @@ div[data-testid="stVerticalBlock"] > div > button:hover {
     color: #cbd5e1 !important;
 }
 
-/* Input fields — comfortable size */
+/* ── Input fields ── */
 .stApp:has(.unauthenticated-root) input {
-    padding: 0.4rem 0.7rem !important;
+    padding: 0.5rem 0.75rem !important;
     font-size: 0.95rem !important;
 }
 
-/* Compact spacers and paragraph margins */
+/* ── Paragraph margins ── */
 .stApp:has(.unauthenticated-root) .stMarkdown div p {
-    margin-bottom: 0.2rem !important;
+    margin-bottom: 0.25rem !important;
 }
 
-/* Strip Streamlit internal widget wrapper spacing */
-.stApp:has(.unauthenticated-root) [data-testid="stTextInput"],
-.stApp:has(.unauthenticated-root) [data-testid="stButton"],
+/* ── Widget wrapper spacing — keep small but not zero ── */
+.stApp:has(.unauthenticated-root) [data-testid="stTextInput"] {
+    margin-bottom: 0.25rem !important;    /* 4px breathing room between fields */
+    padding-bottom: 0 !important;
+}
+
 .stApp:has(.unauthenticated-root) [data-testid="stMarkdown"] {
     margin-bottom: 0 !important;
     padding-bottom: 0 !important;
 }
 
-/* Streamlit's bottom-padding on text input containers */
 .stApp:has(.unauthenticated-root) .stTextInput > div {
     padding-bottom: 0 !important;
 }
 
-/* Streamlit button containers */
+/* ── Buttons — small controlled margin ── */
+.stApp:has(.unauthenticated-root) [data-testid="stButton"] {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+}
+
 .stApp:has(.unauthenticated-root) .stButton > button {
     margin-top: 0 !important;
     margin-bottom: 0 !important;
+}
+
+/* ── Google sign-in wrapper — proper spacing inside the card ── */
+.stApp:has(.unauthenticated-root) .google-signin-wrapper {
+    margin-top: 0 !important;
+    margin-bottom: 8px !important;    /* push Return to Home down */
+    padding-bottom: 0 !important;
+}
+
+.stApp:has(.unauthenticated-root) .google-signin-wrapper a {
+    display: block;
+    text-decoration: none !important;
+}
+
+.stApp:has(.unauthenticated-root) .google-signin-wrapper button {
+    width: 100%;
+    background: #1a73e8 !important;
+    color: #ffffff !important;
+    border: none !important;
+    padding: 0.55rem 1.4rem !important;
+    border-radius: 12px !important;
+    cursor: pointer;
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    font-family: 'Inter', sans-serif !important;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 4px 18px rgba(26, 115, 232, 0.25) !important;
+}
+
+.stApp:has(.unauthenticated-root) .google-signin-wrapper button:hover {
+    background: #2b7de9 !important;
+    box-shadow: 0 6px 24px rgba(26, 115, 232, 0.4) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* ── Return to Home footer — visual separation ── */
+.stApp:has(.unauthenticated-root) .login-footer-spacer {
+    min-height: 16px !important;      /* reliable spacer — margins collapse in Streamlit wrappers */
+}
+
+/* Force padding above the Return to Home button via its key-based wrapper */
+.stApp:has(.unauthenticated-root) .st-key-back_home {
+    padding-top: 16px !important;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   RESPONSIVE — Tablet & Mobile
+   ────────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+    .stApp:has(.unauthenticated-root) [data-testid="column"]:nth-of-type(2) {
+        padding: 1.5rem 1.5rem 1.25rem !important;
+        border-radius: 16px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .stApp:has(.unauthenticated-root) [data-testid="column"]:nth-of-type(2) {
+        padding: 1.25rem 1rem 1rem !important;
+        border-radius: 14px !important;
+    }
+
+    .stApp:has(.unauthenticated-root) .sidebar-logo {
+        font-size: 1.8rem !important;
+    }
 }
 

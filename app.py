@@ -29,15 +29,17 @@ def handle_login():
                 if key not in ["login_username", "login_password", "oauth_state", "show_login"]:
                     del st.session_state[key]
 
+            from typing import cast, Any
+            result_dict = cast(dict[str, Any], result)
             st.session_state.logged_in = True
-            st.session_state.user = result
-            st.session_state.role = result['role']
+            st.session_state.user = result_dict
+            st.session_state.role = result_dict['role']
             st.session_state.login_time = time.time()
             st.session_state.theme = "dark"
             st.session_state.analytics_data = {"visits": {}, "searches": []}
             st.session_state.chat_history = [{"role": "assistant", "content": "Hello! I am your EduVerse AI Assistant. Kaise help kar sakta hoon?"}]
 
-            log_action(result['id'], "Login")
+            log_action(result_dict['id'], "Login")
         else:
             record_attempt(username_cleaned)
             st.session_state.login_error = "Invalid credentials"
@@ -133,6 +135,8 @@ if has_google_callback and not st.session_state.logged_in:
         if google_user_info:
             result = sign_in_with_google(google_user_info)
             if result:
+                from typing import cast, Any
+                result_dict = cast(dict[str, Any], result)
                 clear_oauth_query_params()
 
                 for key in list(st.session_state.keys()):
@@ -140,8 +144,8 @@ if has_google_callback and not st.session_state.logged_in:
                         del st.session_state[key]
 
                 st.session_state.logged_in = True
-                st.session_state.user = result
-                st.session_state.role = result['role']
+                st.session_state.user = result_dict
+                st.session_state.role = result_dict['role']
                 st.session_state.login_time = time.time()
                 st.session_state.auth_provider = "google"
 
@@ -149,7 +153,7 @@ if has_google_callback and not st.session_state.logged_in:
                 st.session_state.analytics_data = {"visits": {}, "searches": []}
                 st.session_state.chat_history = [{"role": "assistant", "content": "Hello! I am your EduVerse AI Assistant. Kaise help kar sakta hoon?"}]
 
-                log_action(result['id'], "Google Login")
+                log_action(result_dict['id'], "Google Login")
                 st.rerun()
             else:
                 clear_oauth_query_params()
@@ -266,7 +270,9 @@ def sidebar_nav():
     st.sidebar.markdown('<hr style="border-color: rgba(255, 255, 255, 0.1);"/>', unsafe_allow_html=True)
     if st.sidebar.button("Logout", key="logout_btn", use_container_width=True):
         try:
-            log_action(st.session_state.user['id'], "Logout")
+            from typing import cast, Any
+            user_dict = cast(dict[str, Any], st.session_state.user)
+            log_action(user_dict['id'], "Logout")
         except Exception:
             pass
         for key in list(st.session_state.keys()):

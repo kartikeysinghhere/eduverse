@@ -51,7 +51,7 @@ def sign_in(username, password):
 
     if DB_MODE == "supabase":
         try:
-            supabase = get_supabase_client()
+            supabase = get_supabase_service_client()
             response = supabase.table("users").select("*").eq("username", login_id).execute()
             if not response.data and "@" in login_id:
                 response = supabase.table("users").select("*").eq("email", login_id).execute()
@@ -102,7 +102,7 @@ def sign_in_with_google(google_user_info):
 
     if DB_MODE == "supabase":
         try:
-            supabase = get_supabase_client()
+            supabase = get_supabase_service_client()
             response = supabase.table("users").select("*").eq("email", email).execute()
             if response.data:
                 return response.data[0]

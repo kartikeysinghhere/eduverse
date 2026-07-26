@@ -65,6 +65,7 @@ def generate_dataset(n=500, target_min=3.20, target_max=3.40):
 
     mean_sh = 24.0
     attempts = 0
+    df = pd.DataFrame()
 
     while attempts < 100:
         np.random.seed(42 + attempts)

@@ -24,7 +24,8 @@ def show_teacher_main():
     section_header("Class Overview", "Academic session 2025-26 | Computer Science B")
 
     try:
-        data = fetch_table("students")
+        teacher_id = st.session_state.user['id']
+        data = fetch_table("students", filters={"assigned_teacher_id": teacher_id})
         df = pd.DataFrame(data)
     except Exception:
         df = generate_student_data(45)
@@ -64,7 +65,8 @@ def show_student_list():
     section_header("Student Directory", "Manage and view all students in your classes")
 
     try:
-        data = fetch_table("students")
+        teacher_id = st.session_state.user['id']
+        data = fetch_table("students", filters={"assigned_teacher_id": teacher_id})
         if not data:
             raise Exception("empty")
         df = pd.DataFrame(data)

@@ -9,6 +9,7 @@ import io
 import numpy as np
 from utils.charts import apply_neon_theme
 from utils.db import fetch_table
+from typing import cast, Any
 from datetime import datetime
 
 @st.cache_data(ttl=300)
@@ -21,6 +22,9 @@ def get_student_grades_chart(df_marks_json):
                  color_discrete_sequence=colors,
                  labels={'Subject': 'Course', 'Marks': 'Grade'})
     fig = apply_neon_theme(fig, "Marks Distribution")
+    fig.update_layout(
+        showlegend=False
+    )
     return fig
 
 @st.cache_data(ttl=300)
@@ -69,14 +73,16 @@ def show_main_dashboard():
             "internal_marks": 85
         }
 
+    df_all = pd.DataFrame()
     try:
         all_students = fetch_table("students")
-        df_all = pd.DataFrame(all_students)
-        df_all.columns = [c.lower() for c in df_all.columns]
-        df_all = df_all.sort_values("final_gpa", ascending=False).reset_index(drop=True)
+        if all_students:
+            df_all = pd.DataFrame(all_students)
+            df_all.columns = [c.lower() for c in df_all.columns]
+            df_all = df_all.sort_values("final_gpa", ascending=False).reset_index(drop=True)
         student_row = df_all[df_all['student_id'] == student_id]
         if not student_row.empty:
-            rank = student_row.index[0] + 1
+            rank = int(cast(Any, student_row.index[0])) + 1
             rank_str = f"{rank}/{len(df_all)}"
         else:
             rank_str = "N/A"
@@ -103,9 +109,12 @@ def show_main_dashboard():
             st.info(b)
 
     with col_main:
+        final_gpa = cast(float, student['final_gpa'])
+        prev_gpa = cast(float, student['prev_gpa'])
+        attendance_pct = cast(float, student['attendance_pct'])
         metrics = [
-            {"label": "Current CGPA", "value": f"{student['final_gpa']:.2f}", "trend": f"{'+' if student['final_gpa'] >= student['prev_gpa'] else ''}{student['final_gpa'] - student['prev_gpa']:.2f}"},
-            {"label": "Attendance", "value": f"{int(student['attendance_pct'])}%", "trend": "+1.5%"},
+            {"label": "Current CGPA", "value": f"{final_gpa:.2f}", "trend": f"{'+' if final_gpa >= prev_gpa else ''}{final_gpa - prev_gpa:.2f}"},
+            {"label": "Attendance", "value": f"{int(attendance_pct)}%", "trend": "+1.5%"},
             {"label": "Rank", "value": rank_str, "trend": "Stable"}
         ]
         metric_row(metrics)
@@ -117,6 +126,8 @@ def show_main_dashboard():
             </div>
         """, unsafe_allow_html=True)
         try:
+            if df_all.empty:
+                raise ValueError("Empty DataFrame")
             top_5_data = df_all.head(5)[['name', 'final_gpa']]
             top_5_data.columns = ['Name', 'GPA']
         except Exception:
@@ -173,19 +184,21 @@ def show_grades():
             
             records = []
             for _, row in df_marks.iterrows():
+                row_dict = cast(dict, row.to_dict())
                 records.append({
                     "student_id": int(student_id),
-                    "Subject": str(row['Subject']),
-                    "Marks": int(row['Marks'])
+                    "Subject": str(row_dict.get('Subject', '')),
+                    "Marks": int(row_dict.get('Marks', 0))
                 })
             
             if not insert_records("grades", records):
                 fallback_records = []
                 for _, row in df_marks.iterrows():
+                    row_dict = cast(dict, row.to_dict())
                     fallback_records.append({
                         "student_id": int(student_id),
-                        "subject": str(row['Subject']),
-                        "marks": int(row['Marks'])
+                        "subject": str(row_dict.get('Subject', '')),
+                        "marks": int(row_dict.get('Marks', 0))
                     })
                 insert_records("marks", fallback_records)
 
@@ -242,7 +255,8 @@ def show_attendance():
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    df_att['Week'] = df_att['date'].dt.to_period('W').apply(lambda r: r.start_time.strftime('%b %d'))
+    week_series = cast(Any, (df_att['date'] - pd.to_timedelta(df_att['date'].dt.weekday, unit='D')))
+    df_att['Week'] = week_series.dt.strftime('%b %d')  # type: ignore
     weekly_stats = df_att.groupby('Week').apply(
         lambda x: (x['status'] == 'Present').sum() / len(x) * 100
     ).reset_index()
@@ -255,7 +269,7 @@ def show_attendance():
     st.markdown("###  Daily Attendance Badges")
     timeline_html = "<div style='display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;'>"
     for _, row in df_att.sort_values('date').iterrows():
-        d_str = row['date'].strftime('%b %d')
+        d_str = cast(datetime, row['date']).strftime('%b %d')
         stat = row['status']
         bg_color = "rgba(67, 233, 123, 0.15)" if stat == 'Present' else "rgba(250, 112, 154, 0.15)"
         border_color = "#43e97b" if stat == 'Present' else "#fa709a"

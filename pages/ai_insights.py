@@ -28,7 +28,7 @@ def get_insights_pie_chart(df_json):
     df = pd.read_json(StringIO(df_json))
     risk_counts = df['risk'].value_counts().reset_index()
     risk_counts.columns = ['Status', 'Count']
-    risk_counts['Status'] = risk_counts['Status'].map({0: 'Good Standing', 1: 'At Academic Risk'})
+    risk_counts['Status'] = risk_counts['Status'].replace({0: 'Good Standing', 1: 'At Academic Risk'})
     fig = px.pie(risk_counts, values='Count', names='Status',
                  color_discrete_sequence=['#43e97b', '#fa709a'])
     fig = apply_neon_theme(fig, "Academic Risk Distribution")

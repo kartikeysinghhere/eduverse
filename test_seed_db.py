@@ -43,7 +43,7 @@ def main():
     student_pw = hash_password(student_raw)
 
     ROOT = Path(__file__).resolve().parent
-    db_path = str(ROOT / "eduverse.db")
+    db_path = str(ROOT / "test_eduverse.db")
     csv_path = str(ROOT / "data" / "sample_data.csv")
 
     print(f"Seeding SQLite database at: {db_path}")
@@ -59,14 +59,6 @@ def main():
     cur = conn.cursor()
 
     tables = ["users", "students", "grades", "attendance", "departments", "analytics_logs"]
-
-    import sys
-    if "--force" not in sys.argv:
-        print(f"\nWARNING: This will DROP the following tables: {', '.join(tables)}")
-        confirm = input("Type 'yes' to proceed: ")
-        if confirm.strip().lower() != "yes":
-            print("Aborting database seed.")
-            return
 
     for t in tables:
         cur.execute(f"DROP TABLE IF EXISTS {t}")

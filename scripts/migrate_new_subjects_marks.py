@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 from supabase import create_client
 from dotenv import load_dotenv
+from postgrest.types import CountMethod
+from typing import Any, cast, List, Dict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -24,7 +26,7 @@ def main():
 
     print("Step 1: Fetching subject IDs from Supabase subjects table...")
     res_subjects = supabase.table("subjects").select("*").execute()
-    subjects_data = res_subjects.data
+    subjects_data = cast(List[Dict[str, Any]], res_subjects.data)
 
     original_subject_ids = {1, 2, 3, 4, 5, 6}
     new_subjects = [r for r in subjects_data if r['id'] not in original_subject_ids]
@@ -50,7 +52,7 @@ def main():
     grades_records = []
     np.random.seed(42)
 
-    for _, row in df.iterrows():
+    for row in df.to_dict('records'):
         sid = int(row['student_id'])
         base_marks = float(row['internal_marks'])
 
@@ -79,7 +81,7 @@ def main():
     print("             FINAL GRADES VERIFICATION              ")
     print("====================================================")
 
-    cnt_grades = supabase.table("grades").select("*", count="exact").limit(0).execute().count
+    cnt_grades = supabase.table("grades").select("*", count=CountMethod.exact).limit(0).execute().count
     print(f"SELECT COUNT(*) FROM grades -> Current Total: {cnt_grades}")
     print("====================================================")
 
