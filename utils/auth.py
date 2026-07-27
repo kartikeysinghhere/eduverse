@@ -164,7 +164,6 @@ def _create_user_record(email: str, name: str) -> dict | None:
             logger.error(f"Failed to create user in Supabase: {e}")
             return None
 
-    # SQLite fallback
     try:
         conn = get_db_connection()
         conn.row_factory = sqlite3.Row

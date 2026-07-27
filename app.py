@@ -340,23 +340,23 @@ def show_landing_page():
     if not st.session_state.get("show_login", False):
         st.markdown("""
             <div class="hero-container fade-in">
-                <div class="sidebar-logo" style="font-size: 2.8rem; margin-bottom: 2px; line-height: 1;">EduVerse</div>
-                <p style="font-size: 1rem; color: #94a3b8; max-width: 800px; margin: 0 auto 0.8rem; font-weight: 400; line-height: 1.4;">
+                <div class="sidebar-logo" style="font-size: 4.5rem; margin-bottom: 1.5rem; line-height: 1;">EduVerse</div>
+                <p style="font-size: 1.4rem; color: #94a3b8; max-width: 800px; margin: 0 auto 3rem; font-weight: 400; line-height: 1.6;">
                     The <span class="gradient-text" style="font-weight: 800;">World-Class</span> Intelligence layer for modern education.<br/>
                     AI-powered analytics that feel like the future.
                 </p>
-                <div style="display: flex; justify-content: center; gap: 1.2rem; margin-bottom: 0.6rem; margin-top: 1rem;">
-                    <div class="glass-card floating-card" style="padding: 1rem 2rem;">
-                        <span style="font-size: 2.2rem; font-weight: 900; color: #00f2fe; display: block;">500+</span>
-                        <span style="color: #64748b; font-weight: 700; letter-spacing: 1px; font-size: 0.8rem;">STUDENTS</span>
+                <div style="display: flex; justify-content: center; gap: 3rem; margin-bottom: 4rem; margin-top: 2rem;">
+                    <div class="glass-card floating-card" style="padding: 2.5rem 3.5rem;">
+                        <span style="font-size: 3.5rem; font-weight: 900; color: #00f2fe; display: block; margin-bottom: 0.5rem;">500+</span>
+                        <span style="color: #64748b; font-weight: 700; letter-spacing: 2px; font-size: 1.1rem;">STUDENTS</span>
                     </div>
-                    <div class="glass-card floating-card" style="padding: 1rem 2rem; animation-delay: 1s;">
-                        <span style="font-size: 2.2rem; font-weight: 900; color: #43e97b; display: block;">95%</span>
-                        <span style="color: #64748b; font-weight: 700; letter-spacing: 1px; font-size: 0.8rem;">PASS RATE</span>
+                    <div class="glass-card floating-card" style="padding: 2.5rem 3.5rem; animation-delay: 1s;">
+                        <span style="font-size: 3.5rem; font-weight: 900; color: #43e97b; display: block; margin-bottom: 0.5rem;">95%</span>
+                        <span style="color: #64748b; font-weight: 700; letter-spacing: 2px; font-size: 1.1rem;">PASS RATE</span>
                     </div>
-                    <div class="glass-card floating-card" style="padding: 1rem 2rem; animation-delay: 2s;">
-                        <span style="font-size: 2.2rem; font-weight: 900; color: #fa709a; display: block;">AI</span>
-                        <span style="color: #64748b; font-weight: 700; letter-spacing: 1px; font-size: 0.8rem;">INSIGHTS</span>
+                    <div class="glass-card floating-card" style="padding: 2.5rem 3.5rem; animation-delay: 2s;">
+                        <span style="font-size: 3.5rem; font-weight: 900; color: #fa709a; display: block; margin-bottom: 0.5rem;">AI</span>
+                        <span style="color: #64748b; font-weight: 700; letter-spacing: 2px; font-size: 1.1rem;">INSIGHTS</span>
                     </div>
                 </div>
             </div>
@@ -365,22 +365,23 @@ def show_landing_page():
         st.markdown("""
             <style>
             div[data-testid="stColumn"] button {
-                min-width: 300px !important;
-                margin-top: 0.8rem !important;
-                font-size: 1.05rem !important;
-                padding: 0.7rem 2rem !important;
+                min-width: 400px !important;
+                margin-top: 1.5rem !important;
+                font-size: 1.4rem !important;
+                padding: 1rem 3rem !important;
                 height: auto !important;
+                border-radius: 16px !important;
             }
             </style>
         """, unsafe_allow_html=True)
 
-        col1, col2, col3 = st.columns([1.5, 1, 1.5])
+        col1, col2, col3 = st.columns([1, 1.5, 1])
         with col2:
             if st.button("Launch Platform ->", use_container_width=True):
                 st.session_state.show_login = True
                 st.rerun()
     else:
-        col1, col2, col3 = st.columns([1, 1.8, 1])
+        col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
             st.markdown("""
                 <style>
@@ -389,18 +390,16 @@ def show_landing_page():
                     backdrop-filter: blur(20px) !important;
                     border: 1px solid rgba(255, 255, 255, 0.08) !important;
                     border-radius: 20px !important;
-                    padding: 1.5rem 2.5rem 2rem !important;
+                    padding: 3rem 4rem !important;
                     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3) !important;
                 }
                 </style>
             """, unsafe_allow_html=True)
 
             st.markdown("""
-                <div style="text-align: center; margin-bottom: 0;">
-                    <div class="sidebar-logo" style="font-size: 2rem; margin-bottom: 0; line-height: 1;">EduVerse</div>
-                    <div style="color: #64748b; font-weight: 600; font-size: 0.8rem; margin-bottom: 2px;">AI-Powered Education Analytics</div>
-                    <div style="font-size: 1.15rem; font-weight: 800; color: #e2e8f0; line-height: 1.2; font-family: Inter, sans-serif;">EduVerse Access</div>
-                    <div style="color: #94a3b8; font-size: 0.8rem; margin-top: 0;">Secure entry to your EduVerse account</div>
+                <div style="text-align: center; margin-bottom: 2rem;">
+                    <div style="font-size: 1.8rem; font-weight: 800; color: #e2e8f0; line-height: 1.2; font-family: Inter, sans-serif;">EduVerse Access</div>
+                    <div style="color: #94a3b8; font-size: 1.1rem; margin-top: 0.5rem;">Secure entry to your EduVerse account</div>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -423,11 +422,12 @@ def show_landing_page():
                     color: #0a0f1e !important;
                     border: none !important;
                     font-weight: 700 !important;
-                    font-size: 1rem !important;
-                    padding: 0.55rem 1.4rem !important;
+                    font-size: 1.3rem !important;
+                    padding: 1rem 2rem !important;
                     border-radius: 12px !important;
                     box-shadow: 0 4px 18px rgba(0, 212, 255, 0.25) !important;
                     transition: all 0.3s ease !important;
+                    margin-top: 1.5rem !important;
                 }
                 .st-key-access_dashboard_btn button:hover {
                     background: linear-gradient(135deg, #00f2fe, #00c4e0) !important;
@@ -441,7 +441,9 @@ def show_landing_page():
                     border: 1px solid rgba(255, 255, 255, 0.12) !important;
                     box-shadow: none !important;
                     font-weight: 500 !important;
-                    font-size: 0.95rem !important;
+                    font-size: 1.2rem !important;
+                    padding: 0.8rem 2rem !important;
+                    margin-top: 1rem !important;
                 }
                 .st-key-back_home button:hover {
                     background: rgba(255, 255, 255, 0.05) !important;
@@ -455,7 +457,7 @@ def show_landing_page():
             if st.button("Access Dashboard", key="access_dashboard_btn", use_container_width=True, on_click=handle_login):
                 pass
 
-            st.markdown("<div style='text-align: center; padding: 12px 0 8px; margin: 0; color: #64748b; font-weight: bold; font-size: 0.9rem; letter-spacing: 1px;'>— OR —</div>", unsafe_allow_html=True)
+            st.markdown("<div style='text-align: center; padding: 24px 0 16px; margin: 0; color: #64748b; font-weight: bold; font-size: 1.1rem; letter-spacing: 1.5px;'>— OR —</div>", unsafe_allow_html=True)
 
             try:
                 auth_url = get_google_auth_url()
