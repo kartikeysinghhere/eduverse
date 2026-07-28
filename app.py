@@ -169,20 +169,20 @@ if has_google_callback and not st.session_state.logged_in:
 if st.session_state.get("logged_in"):
     st.session_state.show_login = False
 
-if not st.session_state.logged_in:
-    st.markdown("""
-        <style>
-        [data-testid="stSidebar"] {
-            display: none !important;
-        }
-        [data-testid="stSidebarCollapseButton"] {
-            display: none !important;
-        }
-        .stApp [data-testid="stSidebar"] {
-            display: none !important;
-        }
-        </style>
-    """, unsafe_allow_html=True)
+sidebar_display = "flex" if st.session_state.get("logged_in", False) else "none"
+st.markdown(f"""
+    <style>
+    [data-testid="stSidebar"] {{
+        display: {sidebar_display} !important;
+    }}
+    [data-testid="stSidebarCollapseButton"] {{
+        display: {sidebar_display} !important;
+    }}
+    .stApp [data-testid="stSidebar"] {{
+        display: {sidebar_display} !important;
+    }}
+    </style>
+""", unsafe_allow_html=True)
 
 if st.session_state.get("logged_in") and "login_time" in st.session_state:
     if time.time() - st.session_state.login_time > 86400:
@@ -208,19 +208,6 @@ load_css()
 def sidebar_nav():
 
     if not st.session_state.logged_in:
-        st.markdown("""
-            <style>
-            [data-testid="stSidebar"] {
-                display: none !important;
-            }
-            [data-testid="stSidebarCollapseButton"] {
-                display: none !important;
-            }
-            .stApp [data-testid="stSidebar"] {
-                display: none !important;
-            }
-            </style>
-        """, unsafe_allow_html=True)
         return "Landing Page"
 
     st.sidebar.markdown('<div class="sidebar-logo">EduVerse</div>', unsafe_allow_html=True)
